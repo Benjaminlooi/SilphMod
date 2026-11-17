@@ -256,7 +256,7 @@ Potion=50,SuperPotion=50,Revive=30,NanabBerry=30
 
 상처약을 83개 가지고 있고 최소 보유량이 50개라면 33개를 삭제합니다. 과도한 부하를 막기 위해 1회 요청당 최대 50개씩 분할 삭제하며, **세션 전체에 대한 삭제 총량 제한은 없습니다**. 엔진은 인벤토리 동기화 응답을 확인한 후 안전하게 다음 작업을 수행합니다.
 
-일반 몬스터볼 3종, **GO 사파리볼**, 상처약 4종, 기력의조각 2종, 열매 5종 등 **34가지 선택 가능 도구**를 지원합니다. 마스터볼, 프리미어볼, 레이드패스, 부화장치 등 **16가지 보호 도구**는 카탈로그 상에서 삭제 요청 자체가 원천 차단되어 있습니다. 도구 ID와 정책은 [ItemCatalog.java](https://www.google.com/search?q=app/src/main/java/dev/rootcatch/nativeengine/ItemCatalog.java)에서 확인할 수 있습니다.
+일반 몬스터볼 3종, **GO 사파리볼**, 상처약 4종, 기력의조각 2종, 열매 5종 등 **34가지 선택 가능 도구**를 지원합니다. 마스터볼, 프리미어볼, 레이드패스, 부화장치 등 **16가지 보호 도구**는 카탈로그 상에서 삭제 요청 자체가 원천 차단되어 있습니다. 도구 ID와 정책은 [ItemCatalog.java](app/src/main/java/dev/rootcatch/nativeengine/ItemCatalog.java)에서 확인할 수 있습니다.
 
 가방 정리는 기본 비활성화되어 있습니다. 삭제 도구 총량 제한은 없습니다. 기존 가방에 들어있던 도구라도 설정된 초과분은 정리 대상이 됩니다. 애매한 서버 응답이나 거절 응답을 받으면 정리를 일시 중단하고 다른 파밍 작업을 진행합니다.
 
@@ -324,7 +324,7 @@ SilphMod는 로컬 제어 채널을 통해 연동되는 두 가지 영역으로 
 
 서비스와 C 엔진은 로컬 **AF_UNIX** 소켓으로 통신하며 프로세스 자격 증명, 세션 ID 및 메시지 시퀀스를 교차 검증합니다. 인증 키는 커맨드 인자가 아닌 프라이빗 파이프(private pipe)를 통해 주입되어 프로세스 목록 검사에 노출되지 않습니다. **5초** 이내에 핸드셰이크를 마치지 못한 연결은 즉시 종료됩니다.
 
-로그 파일에는 민감한 세션 키가 필터링됩니다. 소스는 [NativeComponentIntegrity.java](https://www.google.com/search?q=app/src/main/java/dev/silphmod/nativecheck/NativeComponentIntegrity.java), [control.c](https://www.google.com/search?q=native/control.c), [control-client.c](https://www.google.com/search?q=native/control-client.c), [LogPrivacy.java](https://www.google.com/search?q=app/src/main/java/dev/silphmod/nativecheck/LogPrivacy.java)에 분산 구현되어 있습니다.
+로그 파일에는 민감한 세션 키가 필터링됩니다. 소스는 [NativeComponentIntegrity.java](app/src/main/java/dev/silphmod/nativecheck/NativeComponentIntegrity.java), [control.c](native/control.c), [control-client.c](native/control-client.c), [LogPrivacy.java](app/src/main/java/dev/silphmod/nativecheck/LogPrivacy.java)에 분산 구현되어 있습니다.
 
 ### 자동 맵 복구
 
@@ -339,7 +339,7 @@ return now - s->since >= UINT64_C(300000000000);
 
 ```
 
-*[recovery-policy.c](https://www.google.com/search?q=native/recovery-policy.c) 발췌.*
+*[recovery-policy.c](native/recovery-policy.c) 발췌.*
 
 복구는 최대 **10회 시작 재시도**를 가집니다. **Stop**으로 취소할 수 있습니다. 누적 통계와 한도 설정은 유지되며, 재접속 시 새 프로세스로 신원을 재검증합니다.
 
@@ -382,7 +382,7 @@ status = silph_action_call(s->read, permit, SILPH_ACTION_CAPTURE,
 
 ```
 
-*[farmer-actions.c](https://www.google.com/search?q=native/farmer-actions.c) 발췌. 인자와 세션 권한을 검증한 후 게임 메서드를 호출합니다.*
+*[farmer-actions.c](native/farmer-actions.c) 발췌. 인자와 세션 권한을 검증한 후 게임 메서드를 호출합니다.*
 
 포획 응답은 포획 성공, 볼 탈출, 도망, 빗나간 투구, 포획 에러, 도구 대체를 구분합니다. 빗나간 투구는 조우가 유효하다면 계속 던질 수 있습니다.
 
@@ -414,7 +414,7 @@ status = silph_action_capture_data(s->read, permit, (int32_t)ball,
 
 ```
 
-*[farmer-actions.c](https://www.google.com/search?q=native/farmer-actions.c) 발췌. 기본값은 **Excellent**입니다.*
+*[farmer-actions.c](native/farmer-actions.c) 발췌. 기본값은 **Excellent**입니다.*
 
 획득 XP는 고정 수치가 아니라 게임 서버가 실제 응답으로 돌려준 값을 기반으로 집계됩니다.
 
@@ -445,7 +445,7 @@ if (!status) {
 
 ```
 
-*[farmer-actions.c](https://www.google.com/search?q=native/farmer-actions.c) 발췌.*
+*[farmer-actions.c](native/farmer-actions.c) 발췌.*
 
 이미 열매 효과가 적용되어 있다면 중복으로 먹이지 않습니다. 볼에서 튀어나온 경우 다음 투구 전에 다시 열매를 먹입니다. 열매 먹이기 애니메이션을 기다리지 않고 패킷 확인 후 즉시 볼을 던집니다.
 
@@ -472,7 +472,7 @@ if (status != 1 || type == 46) return SILPH_RESEARCH_KEEP;
 
 ```
 
-*[research-policy.c](https://www.google.com/search?q=native/research-policy.c) 발췌.*
+*[research-policy.c](native/research-policy.c) 발췌.*
 
 **주간 대발견** 스탬프가 7장 모여 보상이 활성화되어 있으면 필드 과제를 하기 전에 대발견 보상(`EncounterType = 5`)을 먼저 수령하고 포획합니다.
 
@@ -492,7 +492,7 @@ status = silph_research_invoke(s->read, permit,
 
 ```
 
-*[research-extra.inc](https://www.google.com/search?q=native/research-extra.inc) 발췌.*
+*[research-extra.inc](native/research-extra.inc) 발췌.*
 
 스페셜 리서치 조우는 **EncounterType = 4**, 기간 한정 리서치 조우는 **EncounterType = 10**으로 처리되며, 파머 모드의 열매 및 투구 로직을 동일하게 사용합니다. 전설, 환상, 울트라비스트는 항상 전송 보호 대상입니다.
 
@@ -509,7 +509,7 @@ s->reward_source = type == 25 ? SILPH_SOURCE_GO_PASS : SILPH_SOURCE_RESEARCH;
 
 ```
 
-*[research-actions.c](https://www.google.com/search?q=native/research-actions.c) 발췌.*
+*[research-actions.c](native/research-actions.c) 발췌.*
 
 ### 파트너 해제
 
@@ -531,7 +531,7 @@ int n = snprintf(out, capacity, "%d%% %d/%d/%d",
 
 ```
 
-*[visual-tools.c](https://www.google.com/search?q=native/visual-tools.c) 발췌.*
+*[visual-tools.c](native/visual-tools.c) 발췌.*
 
 확장 수동 전송(Extended manual transfer)을 켜면 인게임에서 평소 다중 선택이 불가능했던 이로치나 특정 전설 포켓몬을 직접 다중 선택하여 한 번에 박사에게 보낼 수 있게 됩니다.
 
@@ -556,7 +556,7 @@ if (!input || silph_transfer_evaluate(input, sizeof(*input), &verdict)
 
 ```
 
-*[managed-read.c](https://www.google.com/search?q=native/managed-read.c) 발췌.*
+*[managed-read.c](native/managed-read.c) 발췌.*
 
 단순히 인벤토리를 뒤져서 나온 ID는 전송 승인이 거부됩니다. 모호한 응답을 받은 경우 돌이킬 수 없는 중복 재시도를 방지합니다.
 
@@ -577,12 +577,12 @@ JNI 레벨에서 `Location.isFromMockProvider()` 및 최신 안드로이드의 `
 ```powershell
 $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 $env:ANDROID_HOME = "C:\Users\user\AppData\Local\Android\Sdk"
-$env:SILPH_RAID_API = "[https://your-service.example](https://your-service.example)"
+$env:SILPH_RAID_API = "https://your-service.example"
 .\gradlew.bat :app:assembleRelease
 
 ```
 
-빌드 스크립트는 ShadowHook 기반으로 [native](https://www.google.com/search?q=native) 디렉터리의 C 소스를 컴파일하여 **12개의 네이티브 `.so` 라이브러리**를 생성하고 APK의 `app/src/main/jniLibs/arm64-v8a/` 경로에 패키징합니다. 릴리즈 빌드 서명을 위해서는 키스토어 환경변수(`SILPH_KEYSTORE` 등) 설정이 필요합니다.
+빌드 스크립트는 ShadowHook 기반으로 [native](native) 디렉터리의 C 소스를 컴파일하여 **12개의 네이티브 `.so` 라이브러리**를 생성하고 APK의 `app/src/main/jniLibs/arm64-v8a/` 경로에 패키징합니다. 릴리즈 빌드 서명을 위해서는 키스토어 환경변수(`SILPH_KEYSTORE` 등) 설정이 필요합니다.
 
 ## 로그 및 개인정보 보호
 
@@ -643,5 +643,5 @@ SilphMod/
 
 **2.7.6** 강력한 포켓몬 전체 포획 옵션 추가, 볼/열매 분리 우선순위 적용, 포켓몬고 0.435.2 프로필 지원.
 
-라이선스는 [MIT](https://www.google.com/search?q=LICENSE)를 따릅니다. 사용된 오픈소스 의존성은 [NOTICE](https://www.google.com/search?q=NOTICE)에 명시되어 있습니다. 본 프로젝트는 비공식 개인 프로젝트이며 원작 게임 권리사와 무관합니다.
+라이선스는 [MIT](LICENSE)를 따릅니다. 사용된 오픈소스 의존성은 [NOTICE](NOTICE)에 명시되어 있습니다. 본 프로젝트는 비공식 개인 프로젝트이며 원작 게임 권리사와 무관합니다.
 
