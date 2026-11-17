@@ -391,7 +391,20 @@ static int capture_optional(SilphTrace *trace, int note, unsigned char **output,
         if (errno == EINVAL || errno == ENODEV || errno == EIO) return 0;
         return -1;
     }
-    if (data.iov_len != sizeof(header) || header.size < sizeof(header) || header.size > 1048576) {
+    int ssve_fpsimd = note == NT_ARM_SSVE
+        && (header.flags & SVE_PT_REGS_MASK) == SVE_PT_REGS_FPSIMD;
+    if (ssve_fpsimd && data.iov_len == sizeof(header)) {
+        // Inactive SSVE has no payload. Affected kernels report the size of
+        // the 64-bit header pointer, and older kernels expose an FPSIMD payload.
+        if (header.size == sizeof(header) || header.size == sizeof(uint64_t)
+            || header.size == SVE_PT_SIZE(0, SVE_PT_REGS_FPSIMD)) {
+            fprintf(stdout,"{\"event\":\"native_register_state\",\"kind\":\"ssve\",\"supported\":true,\"active\":false,\"bytes\":%u}\n",header.size);
+            fflush(stdout);
+            return 0;
+        }
+    }
+    if (data.iov_len != sizeof(header) || header.size < sizeof(header) || header.size > 1048576
+        || ssve_fpsimd || (note != NT_ARM_ZA && header.size == sizeof(header))) {
         fprintf(stdout,"{\"event\":\"native_register_state\",\"kind\":\"%s\",\"supported\":true,\"headerBytes\":%zu,\"bytes\":%u,\"maximumBytes\":%u,\"valid\":false}\n",name,data.iov_len,header.size,header.max_size);fflush(stdout);errno = ENOTSUP;return -1;
     }
     unsigned char *buffer = calloc(1, header.size);
@@ -578,8 +591,8 @@ int silph_trace_open_mode(SilphTrace *trace, pid_t pid, uint64_t ticks, int seiz
         fprintf(stdout,"{\"event\":\"native_register_state\",\"kind\":\"fpsimd\",\"bytes\":%zu,\"valid\":false}\n",fp.iov_len);fflush(stdout);errno=ENOTSUP;goto fail;
     }
     trace->fp_bytes=fp.iov_len;
-    if (capture_optional(trace, NT_ARM_SVE, &trace->sve, &trace->sve_bytes)
-        || capture_optional(trace, NT_ARM_SSVE, &trace->ssve, &trace->ssve_bytes)
+    if (capture_optional(trace, NT_ARM_SSVE, &trace->ssve, &trace->ssve_bytes)
+        || (!trace->ssve_bytes && capture_optional(trace, NT_ARM_SVE, &trace->sve, &trace->sve_bytes))
         || capture_optional(trace, NT_ARM_ZA, &trace->za, &trace->za_bytes)) goto fail;
     trace->saved = 1;
     trace->stage = "save_borrowed_stack";
@@ -659,9 +672,13 @@ int silph_trace_close(SilphTrace *trace) {
         struct iovec fp = {&trace->fp, trace->fp_bytes};
         if (trace->stack_saved && silph_remote_write(trace->pid, trace->stack_copy_address, trace->stack_copy, sizeof(trace->stack_copy))) failed = 1;
         if (restore_optional(trace->pid, NT_ARM_ZA, trace->za, trace->za_bytes)) failed = 1;
-        if (restore_optional(trace->pid, NT_ARM_SSVE, trace->ssve, trace->ssve_bytes)) failed = 1;
-        if (restore_optional(trace->pid, NT_ARM_SVE, trace->sve, trace->sve_bytes)) failed = 1;
-        if (ptrace(PTRACE_SETREGSET, trace->pid, (void *)NT_PRFPREG, &fp)) failed = 1;
+        // Restore only the active vector set. Writing SVE or SSVE switches
+        // streaming mode, and an FPSIMD write can zero the rest of the vectors.
+        if (trace->ssve_bytes) {
+            if (restore_optional(trace->pid, NT_ARM_SSVE, trace->ssve, trace->ssve_bytes)) failed = 1;
+        } else if (trace->sve_bytes) {
+            if (restore_optional(trace->pid, NT_ARM_SVE, trace->sve, trace->sve_bytes)) failed = 1;
+        } else if (ptrace(PTRACE_SETREGSET, trace->pid, (void *)NT_PRFPREG, &fp)) failed = 1;
         if (ptrace(PTRACE_SETREGSET, trace->pid, (void *)NT_ARM_SYSTEM_CALL, &syscall)) failed = 1;
         if (ptrace(PTRACE_SETREGSET, trace->pid, (void *)NT_PRSTATUS, &gpr)) failed = 1;
         struct user_pt_regs check;
