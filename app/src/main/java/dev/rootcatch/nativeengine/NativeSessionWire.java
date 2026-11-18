@@ -6,10 +6,10 @@ import java.util.Arrays;
 import java.util.zip.CRC32;
 
 public final class NativeSessionWire {
-    public static final int CONFIG_BYTES=1024,SNAPSHOT_BYTES=256,FARMER=1,KECLEON=2,ROCKET=3,ENHANCER=5;
+    public static final int CONFIG_BYTES=1024,SNAPSHOT_BYTES=256,FARMER=1,KECLEON=2,ROCKET=3,ENHANCER=5,HUNTING=7;
     public static final int CATCH=1,SPIN=2,CLEAN=4,TRANSFER=8,BERRIES=16,CURVE=32,READ_ONLY=64,TRAINER_NAME=128,IV_NAMES=256,FIX_LOCATION=512,SCENES=1024,MANUAL_TRANSFER=2048,FAST_GIFTS=4096,REMOVE_BUDDY=8192,AUTO_OPEN_GIFTS=16384,AUTO_SEND_GIFTS=32768,RECOMMENDED_TEAM=65536,EVENT_ACTIONS=131072;
     public static final int ENH_FAST=262144,ENH_INTRO=524288,ENH_ROCKET=1048576,ENH_TELEPORT=2097152,ENH_THROW=4194304,ENH_AIM=8388608,ENH_RAID=16777216,ENH_INFO=33554432,ENH_TRANSFER=67108864,ENH_RAID_HEAL=134217728,ENH_AUTORAID=268435456,ENH_LIGHT_GRAPHICS=536870912;
-    public static boolean validMode(int mode){return mode>=1&&mode<=3||mode==ENHANCER;}
+    public static boolean validMode(int mode){return mode>=1&&mode<=3||mode==ENHANCER||mode==HUNTING;}
     private static final long CONFIG_MAGIC=0x3147464348504c53L,SNAPSHOT_MAGIC=0x3154415348504c53L;
     private NativeSessionWire() { }
     public static final class Config {
@@ -19,7 +19,7 @@ public final class NativeSessionWire {
         public int[] berries=new int[0];
         public int[][] limits=new int[0][2];
         public byte[] species=new byte[256],keepSpecies=new byte[136];
-        public int buddyFlags;
+        public int buddyFlags,fieldResearch,collectionInfo;
         public int[] buddyBerries=new int[0];
         public int[] potionOrder=new int[0],reviveOrder=new int[0];
         public byte[] encode() {
@@ -32,6 +32,7 @@ public final class NativeSessionWire {
             if(mode==ROCKET){b.put(880,(byte)potionOrder.length);for(int i=0;i<potionOrder.length;i++)b.put(881+i,(byte)potionOrder[i]);b.put(885,(byte)reviveOrder.length);for(int i=0;i<reviveOrder.length;i++)b.put(886+i,(byte)reviveOrder[i]);}
             else {b.position(880);b.put(keepSpecies);b.put(1016,(byte)buddyFlags);}int packed=buddyBerries.length;int[] ids={701,703,705,706,708};
             for(int i=0;i<buddyBerries.length;i++)for(int j=0;j<ids.length;j++)if(buddyBerries[i]==ids[j])packed|=(j+1)<<(3+3*i);
+            packed|=fieldResearch<<18|collectionInfo<<20;
             for(int i=0;i<3;i++)b.put(1017+i,(byte)(packed>>>(8*i)));checksum(b,1020);return b.array();
         }
         public String command(){return "engine "+hex(encode());}
@@ -42,6 +43,8 @@ public final class NativeSessionWire {
             require(Arrays.equals(potionOrder,RocketCareOrder.parse(RocketCareOrder.encode(potionOrder),false)));
             require(Arrays.equals(reviveOrder,RocketCareOrder.parse(RocketCareOrder.encode(reviveOrder),true)));
             require((potionOrder.length==0&&reviveOrder.length==0)||(mode==ROCKET&&(flags&READ_ONLY)==0));
+            require(fieldResearch>=0&&fieldResearch<=3&&(fieldResearch==0||mode==FARMER&&(flags&READ_ONLY)==0));
+            require(collectionInfo>=0&&collectionInfo<=3&&(collectionInfo==0||mode==ENHANCER&&(flags&(READ_ONLY|ENH_AUTORAID))==0));
             require(keepSpecies!=null&&keepSpecies.length==136&&(keepSpecies[0]&1)==0&&buddyFlags>=0&&buddyFlags<=3&&buddyBerries!=null&&buddyBerries.length<=5);
             boolean extra=buddyFlags!=0||buddyBerries.length!=0;for(byte value:keepSpecies)extra|=value!=0;
             require(!extra||((mode==FARMER||mode==ENHANCER)&&(flags&READ_ONLY)==0));require(((buddyFlags&1)!=0)==(buddyBerries.length>0));
@@ -55,6 +58,7 @@ public final class NativeSessionWire {
             if((flags&READ_ONLY)!=0)require(flags==READ_ONLY&&maxCatches==0&&maxSpins==0&&maxEncounters==0&&filters==0);
             else if(mode==FARMER)require((flags&7)!=0&&((flags&CATCH)==0||maxCatches>0)&&maxEncounters==0&&filters==0
                     &&((flags&CATCH)!=0||(flags&(TRANSFER|BERRIES))==0));
+            else if(mode==HUNTING)require((flags&CATCH)!=0&&(flags&(SPIN|TRANSFER|CLEAN))==0&&maxSpins==0&&maxEncounters==0&&filters==0);
             else if(mode==ENHANCER)require(maxCatches==0&&maxSpins==0&&maxEncounters==0&&filters==0&&(flags&(SPIN|TRANSFER|EVENT_ACTIONS))==0);
             else require((flags&CATCH)!=0&&(flags&(SPIN|TRANSFER))==0&&maxEncounters>0&&maxCatches==0&&maxSpins==0);
             require(((flags&BERRIES)!=0)==(berries.length>0)&&((flags&CLEAN)!=0)==(limits.length>0));
@@ -72,7 +76,7 @@ public final class NativeSessionWire {
         c.species=Arrays.copyOfRange(data,616,872);c.filters=b.getInt(872);c.durationMs=b.getInt(876);
         if(c.mode==ROCKET){int pn=data[880]&255,rn=data[885]&255;require((pn==0||pn==4)&&(rn==0||rn==2));c.potionOrder=new int[pn];c.reviveOrder=new int[rn];for(int i=0;i<4;i++){int id=data[881+i]&255;if(i<pn)c.potionOrder[i]=id;else require(id==0);}for(int i=0;i<2;i++){int id=data[886+i]&255;if(i<rn)c.reviveOrder[i]=id;else require(id==0);}for(int i=888;i<1020;i++)require(data[i]==0);}
         else{c.keepSpecies=Arrays.copyOfRange(data,880,1016);c.buddyFlags=data[1016]&255;}
-        int packed=(data[1017]&255)|((data[1018]&255)<<8)|((data[1019]&255)<<16),n=packed&7;require(n<=5&&(packed>>>(3+3*n))==0);c.buddyBerries=new int[n];int[] ids={701,703,705,706,708};
+        int packed=(data[1017]&255)|((data[1018]&255)<<8)|((data[1019]&255)<<16),n=packed&7;c.fieldResearch=(packed>>>18)&3;c.collectionInfo=(packed>>>20)&3;packed&=~(15<<18);require(n<=5&&(packed>>>(3+3*n))==0);c.buddyBerries=new int[n];int[] ids={701,703,705,706,708};
         for(int i=0;i<n;i++){int code=(packed>>>(3+3*i))&7;require(code>=1&&code<=5);c.buddyBerries[i]=ids[code-1];}c.validate();return c;
     }
     public static final class Snapshot {

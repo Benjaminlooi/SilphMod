@@ -26,6 +26,10 @@ static atomic_uint farmer_refill_ready;
 #include <time.h>
 #include <android/log.h>
 #include "startup-thread.h"
+#ifdef SILPH_PILOT_HUNTING
+#include "hunting.h"
+static unsigned hunting_attempted;static uint64_t hunting_inventory_at;
+#endif
 #if defined(SILPH_PILOT_FRAME) && defined(SILPH_PILOT_SERVICE)
 #include "farmer-view.h"
 static void *farmer_view;
@@ -274,6 +278,9 @@ failed:
     atomic_store(&appearance_state,3);return 42;
 }
 static void prepare_tools(void){
+#ifdef SILPH_PILOT_HUNTING
+    if(!hunting_attempted++){int r=silph_hunting_start(&managed_api,resolve_managed,&game_image,map.pointer_offset,visual_address);if(r){atomic_store(&progress[PILOT_ERROR],2300+r);atomic_store(&enabled,0);}}
+#endif
     if(!session_configured){
         if(silph_session_link_config(session_link,&session_config))return;
         session_configured=1;atomic_store(&progress[PILOT_READONLY],!!(session_config.flags&SILPH_CFG_READONLY));
@@ -393,7 +400,11 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
 #ifdef SILPH_PILOT_ACTIONS
         if(!status)status=silph_game_read_compact(game_state);
 #ifdef SILPH_PILOT_CONFIGURED
-        if(!(session_config.flags&SILPH_CFG_READONLY)){
+        if(!(session_config.flags&SILPH_CFG_READONLY)
+#ifdef SILPH_PILOT_HUNTING
+            &&false
+#endif
+        ){
 #endif
         if(!status)status=silph_action_enable(read_state,resolve_managed,&game_image);
 #ifdef SILPH_PILOT_ROCKET
@@ -467,7 +478,13 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
 #elif defined(SILPH_PILOT_ACTIONS) && !defined(SILPH_PILOT_SPIN)
     inventory=silph_farmer_actions_inventory_due(farmer_state);
 #endif
+#ifdef SILPH_PILOT_HUNTING
+    inventory=now_ns()>=hunting_inventory_at;if(inventory)hunting_inventory_at=now_ns()+UINT64_C(2000000000);
+#endif
     if(!status)status=silph_game_read_poll(game_state,map_owner,inventory,&snapshot);
+#if defined(SILPH_PILOT_CONTINUOUS) && defined(SILPH_PILOT_CONFIGURED)
+    static unsigned field_inspections=0;static uint64_t field_inspect_after=0;if(!status&&field_inspections<3&&now_ns()>=field_inspect_after&&(session_config.flags&SILPH_CFG_READONLY)){int audit=silph_research_inspect(read_state,managed_state,game_state);field_inspections=audit?field_inspections+1:3;field_inspect_after=now_ns()+UINT64_C(2000000000);__android_log_print(ANDROID_LOG_INFO,"SilphResearch","field inspection readOnly=true error=%d",audit);}
+#endif
 #if defined(SILPH_PILOT_FRAME) && defined(SILPH_PILOT_SERVICE)
 #ifdef SILPH_PILOT_COMBINED
     SilphReadCacheMetrics cache_metrics={0};if(read_state&&!silph_read_cache_metrics(read_state,&cache_metrics)){
@@ -566,6 +583,14 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
 #endif
         ){
 #endif
+#ifdef SILPH_PILOT_HUNTING
+    }
+    if(!(session_config.flags&SILPH_CFG_READONLY)){
+        status=silph_hunting_tick(read_state,managed_state,game_state,session_link,&config.identity,&session_config,permit,&snapshot,now_ns());
+        if(status){atomic_store(&progress[PILOT_ERROR],2400+status);return 1;}
+    }
+    if(false){
+#endif
     SilphFarmerMetrics actions={0};
 #ifdef SILPH_PILOT_ROCKET
     struct timespec wall={0};clock_gettime(CLOCK_REALTIME,&wall);
@@ -659,6 +684,7 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
         memcpy(options.farmer.only_species,session_config.species,sizeof(options.farmer.only_species));
 #ifdef SILPH_PRESENT_SCOPED
         memcpy(options.farmer.keep_species,session_config.keep_species,sizeof(options.farmer.keep_species));
+        options.field_research=session_config.field_research;
 #ifndef SILPH_PILOT_ENHANCER
         if(session_config.flags&SILPH_CFG_EVENT_ACTIONS){int decoded=silph_event_decode(session_config.species+SILPH_EVENT_OFFSET,&options.farmer.event);if(decoded)return decoded;memset(options.farmer.only_species+SILPH_EVENT_OFFSET,0,SILPH_EVENT_BYTES);}
 #endif
@@ -788,7 +814,13 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
     if(auxiliary_reason)session_snapshot.reason=auxiliary_reason;
     session_snapshot.location_status=(session_config.flags&SILPH_CFG_FIX_LOCATION)?(atomic_load(&progress[PILOT_LOCATION_STATE])==1?1:atomic_load(&progress[PILOT_LOCATION_STATE])==2?2:100+atomic_load(&progress[PILOT_LOCATION_ERROR])):0;
 #endif
+#ifdef SILPH_PILOT_HUNTING
+    silph_hunting_snapshot(&session_snapshot);
+#endif
     int published=silph_session_link_publish(session_link,&session_snapshot);if(published&&published!=SILPH_SCHEDULE_BUSY){atomic_store(&progress[PILOT_ERROR],1500+published);return 1;}
+#ifdef SILPH_PILOT_HUNTING
+    if(!published){int r=silph_hunting_publish(session_link);if(r){atomic_store(&progress[PILOT_ERROR],2500+r);return 1;}}
+#endif
 #ifdef SILPH_PILOT_ENHANCER
     if(!published&&(session_config.flags&SILPH_ENH_AUTORAID)){int event_status=silph_enhancer_route_publish(enhancer_state);if(event_status)return event_status;}
 #endif
@@ -860,6 +892,9 @@ static int cleanup(void *unused) {
     if(rocket_flow){int closed=silph_rocket_flow_close(rocket_flow);if(!status)status=closed;if(!closed){free(rocket_flow);rocket_flow=NULL;}}
 #endif
     presentation_progress();
+#endif
+#ifdef SILPH_PILOT_HUNTING
+    if(!status)status=silph_hunting_close();
 #endif
     if(!status&&game_started)status=silph_game_read_close(game_state);
     if(!status&&read_started)status=silph_read_close(read_state);
@@ -1210,7 +1245,9 @@ int silph_native_managed_probe(SilphNativeReport *report,uint32_t capacity) {
 #ifdef SILPH_PILOT_CONFIGURED
     session_link=calloc(1,silph_session_link_size());
     unsigned mode=
-#ifdef SILPH_PILOT_ENHANCER
+#ifdef SILPH_PILOT_HUNTING
+        SILPH_MODE_HUNTING;
+#elif defined(SILPH_PILOT_ENHANCER)
         SILPH_MODE_ENHANCER;
 #elif defined(SILPH_PILOT_ROCKET)
         SILPH_MODE_ROCKET;

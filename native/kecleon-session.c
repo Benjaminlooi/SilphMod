@@ -2,10 +2,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#ifdef SILPH_PILOT_KECLEON
+#include "kecleon-discovery.inc"
+#endif
 typedef struct {
     void *read,*managed,*game,*link,*plan,*action,*maintenance;
     SilphScheduleIdentity identity;SilphSessionConfig config;SilphKecleonSessionMetrics metrics;SilphKecleonEvent event;
     uint64_t event_sequence,clean_due,inventory_after;uint32_t opened,action_opened,maintenance_opened,clean_index,clean_batches,event_dirty;
+#ifdef SILPH_PILOT_KECLEON
+    KecleonDiscovery discovery;
+#endif
 } Session;
 size_t silph_kecleon_session_size(void){return sizeof(Session);}
 int silph_kecleon_session_open(void *memory,size_t bytes,void *read,void *managed,void *game,void *link,const SilphScheduleIdentity *id,const SilphSessionConfig *config,uint64_t now){
@@ -75,7 +81,18 @@ int silph_kecleon_session_tick(void *memory,const SilphSchedulePermit *permit,co
     if(!status)status=silph_kecleon_plan_state(s->plan,&s->metrics.plan);
     bool busy=false;if(!status&&s->metrics.plan.phase!=SILPH_KPLAN_FINISHED)status=clean(s,permit,snapshot,now,&busy);
     SilphKecleonPlanState *p=&s->metrics.plan;
-    if(!status&&!busy&&p->phase==SILPH_KPLAN_SCAN&&now>=p->scan_after_ns){SilphGameStop stop={0};int scanned=silph_game_read_stop_at(s->game,50,p->candidate.latitude,p->candidate.longitude,3,&stop);
+#ifdef SILPH_PILOT_KECLEON
+    if(!status&&!busy)status=discovery_tick(&s->discovery,s->read,s->managed,s->game,&s->identity,p,permit,now,wall);
+    if(!status&&!busy&&p->phase==SILPH_KPLAN_SCAN&&s->discovery.negative_count>=2&&s->discovery.received&&now>=s->discovery.received&&now-s->discovery.received<=UINT64_C(20000000000)){
+        status=silph_kecleon_plan_absent(s->plan,&s->identity,p->request,&s->discovery.stop,s->discovery.types,s->discovery.negative_count,now);
+        if(!status){__android_log_print(ANDROID_LOG_INFO,"SilphKecleon","discovery request=%llu showcaseConfirmed=true deferred=true",(unsigned long long)p->request);status=silph_kecleon_plan_state(s->plan,p);}
+    }
+#endif
+    if(!status&&!busy&&p->phase==SILPH_KPLAN_SCAN&&now>=p->scan_after_ns){SilphGameStop stop={0};int scanned=0;
+#ifdef SILPH_PILOT_KECLEON
+        if(!discovery_cached(&s->discovery,p,now,wall,&stop))
+#endif
+        scanned=silph_game_read_stop_at(s->game,50,p->candidate.latitude,p->candidate.longitude,3,&stop);
         if(scanned&&scanned!=SILPH_MANAGED_NOT_READY)status=scanned;
         else status=silph_kecleon_plan_scan(s->plan,&s->identity,p->request,scanned?NULL:&stop,now,wall);
     }
@@ -85,6 +102,12 @@ int silph_kecleon_session_tick(void *memory,const SilphSchedulePermit *permit,co
             status=silph_kecleon_actions_open(s->action,silph_kecleon_actions_size(),s->read,s->managed,s->game,&s->identity,&options);
             if(!status){s->action_opened=1;status=silph_kecleon_bind_candidate(s->action,&p->candidate);}
             if(!status)status=silph_kecleon_bind_stop(s->action,p->fort,p->incident);
+#ifdef SILPH_PILOT_KECLEON
+            if(!status){SilphGameStop stop={0};if(discovery_cached(&s->discovery,p,now,wall,&stop)&&!strcmp(stop.fort,p->fort)&&!strcmp(stop.incident,p->incident)){
+                status=silph_kecleon_bind_discovery(s->action,&stop,s->discovery.received+UINT64_C(20000000000));
+                if(!status)__android_log_print(ANDROID_LOG_INFO,"SilphKecleon","discovery authorized request=%llu visualModelRequired=false",(unsigned long long)p->request);
+            }}
+#endif
         }
         if(!status)status=silph_kecleon_actions_tick(s->action,permit,snapshot,now,wall,&s->metrics.current);
         if(!status&&s->metrics.current.uncertain)status=SILPH_MANAGED_STATE;
@@ -96,6 +119,9 @@ int silph_kecleon_session_tick(void *memory,const SilphSchedulePermit *permit,co
     if(status)s->metrics.error=(uint32_t)status;*out=s->metrics;return status;
 }
 int silph_kecleon_session_close(void *memory){Session *s=memory;if(!s||!s->opened)return 0;
+#ifdef SILPH_PILOT_KECLEON
+    int discovery=discovery_close(&s->discovery);if(discovery)return discovery;
+#endif
     int a=s->action_opened?silph_kecleon_actions_close(s->action):0,b=s->maintenance_opened?silph_maintenance_close(s->maintenance):0;if(a||b)return a?a:b;
     int status=silph_kecleon_plan_close(s->plan);if(status)return status;free(s->plan);free(s->action);free(s->maintenance);memset(s,0,sizeof(*s));return 0;
 }

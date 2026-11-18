@@ -12,6 +12,11 @@ static const RpcSchema rpc_schemas[]={
     {3034,"ClaimEventPassRewardsRequestProto","ClaimEventPassRewardsResponseProto"},
     {3035,"ClaimEventPassRewardsRequestProto","ClaimEventPassRewardsResponseProto"},
     {103,"CatchPokemonProto","CatchPokemonOutProto"}
+#ifdef SILPH_PILOT_HUNTING
+    ,{102,"EncounterProto","EncounterOutProto"},{103,"CatchPokemonProto","CatchPokemonOutProto"},{106,"GetMapObjectsProto","GetMapObjectsOutProto"}
+#elif defined(SILPH_PILOT_KECLEON)
+    ,{106,"GetMapObjectsProto","GetMapObjectsOutProto"}
+#endif
 };
 int silph_rpc_enable(void *memory,SilphManagedResolver resolve,void *context){
     if(!resolve)return SILPH_MANAGED_ARGUMENT;

@@ -63,6 +63,16 @@ int silph_kecleon_plan_authorize(void *memory,const SilphScheduleIdentity *id,ui
     if(now>=p->deadline)result(p,SILPH_KPLAN_UNVERIFIED,false);
     else if(accepted){p->state.phase=SILPH_KPLAN_RUN;p->deadline=now+UINT64_C(180000000000);}else result(p,SILPH_KPLAN_REJECTED,true);return 0;
 }
+#ifdef SILPH_PILOT_KECLEON
+int silph_kecleon_plan_absent(void *memory,const SilphScheduleIdentity *id,uint64_t request,const SilphGameStop *stop,uint32_t types,uint32_t confirmations,uint64_t now){
+    Plan *p=memory;int status=guard(p,id,now);if(status)return status;
+    if(request!=p->state.request||p->state.phase!=SILPH_KPLAN_SCAN||!stop||confirmations<2||!(types&(1u<<9))||(types&(1u<<8))
+        ||!stop->scan_complete||stop->matches!=1||stop->active||!text(stop->fort,sizeof(stop->fort))||!isfinite(stop->latitude)||!isfinite(stop->longitude)
+        ||fabs(stop->latitude)>90||fabs(stop->longitude)>180||!isfinite(stop->meters)||stop->meters<0||stop->meters>50
+        ||distance(stop->latitude,stop->longitude,p->state.candidate.latitude,p->state.candidate.longitude)>3)return SILPH_MANAGED_ARGUMENT;
+    result(p,SILPH_KPLAN_UNVERIFIED,false);return 0;
+}
+#endif
 int silph_kecleon_plan_result(void *memory,const SilphScheduleIdentity *id,uint64_t request,const SilphKecleonMetrics *value,uint64_t now){
     Plan *p=memory;int status=guard(p,id,now);if(status)return status;if(!value||request!=p->state.request||p->state.phase!=SILPH_KPLAN_RUN
         ||(value->state!=SILPH_KECLEON_DONE&&value->state!=SILPH_KECLEON_UNVERIFIED)||value->encounters>1||value->catches>value->encounters||value->shinies>value->encounters

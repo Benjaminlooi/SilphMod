@@ -14,6 +14,7 @@ typedef struct {
     SilphFarmerOptions farmer;
 #ifdef SILPH_PRESENT_SCOPED
     SilphBuddyCareOptions buddy;
+    uint32_t field_research;
 #endif
     uint32_t abi,catches,spins,clean,max_spins,limit_count,research;
     struct {int32_t item;uint32_t floor;} limits[64];

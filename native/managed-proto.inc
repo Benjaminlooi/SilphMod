@@ -10,6 +10,13 @@ static bool encounter_token(const char *text){
     return bits&&(bits>>61)<=5;
 }
 int silph_proto_validate(uint32_t operation,const SilphRequestInput *input){
+#ifdef SILPH_RPC_DISCOVERY_MAP
+    if(operation==SILPH_RPC_DISCOVERY_MAP)return input&&input->abi==1&&!input->reserved&&!input->encounter&&!input->item&&!input->count&&!input->quality&&!input->curve&&!input->fort[0]&&!input->location[0]&&coordinate(input->latitude,input->longitude)&&coordinate(input->player_latitude,input->player_longitude)?0:SILPH_MANAGED_ARGUMENT;
+#endif
+#ifdef SILPH_PILOT_HUNTING
+    if(operation==13||operation==14){if(!input||input->abi!=1||input->reserved||!input->encounter||!encounter_token(input->location)||!coordinate(input->player_latitude,input->player_longitude))return SILPH_MANAGED_ARGUMENT;
+        return operation==13||(((input->item>=1&&input->item<=3)||input->item==7)&&input->quality>=1&&input->quality<=4&&input->curve<=1)?0:SILPH_MANAGED_ARGUMENT;}
+#endif
     if(input&&input->abi==1&&!input->reserved&&operation==SILPH_RPC_ROCKET_CAPTURE)
         return input->encounter&&encounter_token(input->location)&&input->item==5&&input->quality>=1&&input->quality<=4&&input->curve<=1?0:SILPH_MANAGED_ARGUMENT;
     if(!input||input->abi!=1||input->reserved||operation<1||operation>=SILPH_RPC_GIFT_OPEN)return SILPH_MANAGED_ARGUMENT;
@@ -85,11 +92,52 @@ int silph_proto_token(void *memory,double lat,double lon,char *output,uint32_t c
     if(!output||capacity<17)return SILPH_MANAGED_ARGUMENT;output[0]=0;
     Read *s=memory;int status=enter_read(s);if(status)return status;status=geometry_token(s,lat,lon,output);return leave_read(s,status);
 }
+#ifdef SILPH_RPC_DISCOVERY_MAP
+static int hunting_map_list(Read *s,SilphManagedRef request,const char *name,SilphReadValue *out){
+    void *object=NULL,*list=NULL;int status=silph_managed_target(s->managed,request,&object);const void *field=status?NULL:find_field(s,s->base.object_get_class(object),name,NULL,NULL,&status);
+    const void *type=field?s->api.field_get_type(field):NULL;if(!status&&!matches_kind(s,type,SILPH_READ_REFERENCE))status=SILPH_MANAGED_CONTRACT;
+    if(!status){s->api.field_get_value(object,field,&list);status=accept_reference(s,type,list,out);}return status;
+}
+static int hunting_map_payload(Read *s,SilphManagedRef request,const SilphRequestInput *input){
+    int status=0;SilphReadValue cells={0},times={0},value={0};uint64_t ids[5]={0};unsigned total=0;
+    double lat=input->latitude,lon=input->longitude,dy=.000405,dx=dy/fmax(.01,cos(lat*.017453292519943295));const int offsets[5][2]={{0,0},{-1,-1},{-1,1},{1,-1},{1,1}};
+    if(!status)status=hunting_map_list(s,request,"CellId",&cells);
+    if(!status)status=hunting_map_list(s,request,"SinceTimeMs",&times);
+    for(unsigned i=0;!status&&i<5;i++){double a=lat+offsets[i][0]*dy,b=lon+offsets[i][1]*dx;if(fabs(a)>90)continue;if(b>180)b-=360;if(b< -180)b+=360;char token[17]={0};status=geometry_token(s,a,b,token);uint64_t id=0;
+        if(!status){size_t n=strlen(token);for(size_t j=0;j<16;j++){unsigned c=j<n?(unsigned char)token[j]:'0';id=(id<<4)|(c<='9'?c-'0':c-'a'+10);}id=(id&~((UINT64_C(1)<<30)-1))|(UINT64_C(1)<<30);}
+        bool duplicate=false;for(unsigned j=0;j<total;j++)if(ids[j]==id)duplicate=true;if(status||duplicate)continue;ids[total++]=id;
+        SilphReadArgument arg={.kind=SILPH_READ_U64,.value.bits=id};status=call_internal(s,cells.reference,NULL,"Add",SILPH_READ_VOID,&arg,1,&value,NULL);
+        arg=(SilphReadArgument){.kind=SILPH_READ_I64};if(!status)status=call_internal(s,times.reference,NULL,"Add",SILPH_READ_VOID,&arg,1,&value,NULL);
+    }
+    if(!status)status=fresh_double(s,request,"PlayerLat",input->player_latitude);
+    if(!status)status=fresh_double(s,request,"PlayerLng",input->player_longitude);
+    SilphManagedRef *refs[]={&cells.reference,&times.reference,&value.reference};for(unsigned i=0;i<3;i++){int freed=release_rpc_ref(s,refs[i]);if(!status)status=freed;}return status;
+}
+#endif
 int silph_proto_request(void *memory,uint32_t operation,const SilphRequestInput *input,SilphManagedRef *output){
     if(!output)return SILPH_MANAGED_ARGUMENT;memset(output,0,sizeof(*output));int status=silph_proto_validate(operation,input);if(status)return status;
     Read *s=memory;status=enter_read(s);if(status)return status;
     if(!s->object_new||!s->field_set_value||!s->field_set_value_object)return leave_read(s,SILPH_MANAGED_STATE);
     status=fresh_proto(s,rpc_schemas[operation-1].request,output);char token[17]={0};SilphManagedRef ar={0};
+#ifdef SILPH_RPC_DISCOVERY_MAP
+    if(!status&&operation==SILPH_RPC_DISCOVERY_MAP)status=hunting_map_payload(s,*output,input);
+#endif
+#ifdef SILPH_PILOT_HUNTING
+    if(!status&&operation==13)status=fresh_scalar(s,*output,"EncounterId",SILPH_READ_U64,input->encounter);
+    if(!status&&operation==13)status=fresh_text(s,*output,"SpawnpointId",input->location);
+    if(!status&&operation==13)status=fresh_double(s,*output,"PlayerLatDegrees",input->player_latitude);
+    if(!status&&operation==13)status=fresh_double(s,*output,"PlayerLngDegrees",input->player_longitude);
+    if(!status&&operation==14){const double sizes[]={0,1.1,.85,.5,.05};status=fresh_scalar(s,*output,"EncounterId",SILPH_READ_U64,input->encounter);
+        if(!status)status=fresh_text(s,*output,"SpawnPointGuid",input->location);
+        if(!status)status=fresh_scalar(s,*output,"Pokeball",SILPH_READ_I32,(uint32_t)input->item);
+        if(!status)status=fresh_double(s,*output,"NormalizedReticleSize",2-sizes[input->quality]);
+        if(!status)status=fresh_scalar(s,*output,"HitPokemon",SILPH_READ_BOOL,1);
+        if(!status)status=fresh_double(s,*output,"SpinModifier",input->curve?1:0);
+        if(!status)status=fresh_double(s,*output,"NormalizedHitPosition",1);
+        if(!status)status=fresh_scalar(s,*output,"ShouldFlee",SILPH_READ_BOOL,0);
+        if(!status)status=fresh_proto(s,"ARPlusEncounterValuesProto",&ar);
+        if(!status)status=fresh_reference(s,*output,"ArPlusValues",ar);}
+#endif
     if(!status&&operation==SILPH_RPC_BUDDY_CHECK)status=fresh_scalar(s,*output,"BuddyHomeWidgetActive",SILPH_READ_BOOL,0);
     if(!status&&operation==SILPH_RPC_BUDDY_REMOVE)status=fresh_scalar(s,*output,"PokemonId",SILPH_READ_U64,0);
     if(!status&&operation==SILPH_RPC_KECLEON_GET)status=geometry_token(s,input->latitude,input->longitude,token);
@@ -118,3 +166,17 @@ int silph_proto_request(void *memory,uint32_t operation,const SilphRequestInput 
     int freed=release_rpc_ref(s,&ar);if(!status)status=freed;
     if(status)release_rpc_ref(s,output);return leave_read(s,status);
 }
+
+#ifdef SILPH_PILOT_HUNTING
+int silph_hunting_coordinates(void *memory,const char *token,double *lat,double *lon){
+    if(!lat||!lon||!encounter_token(token))return SILPH_MANAGED_ARGUMENT;Read *s=memory;int status=enter_read(s);if(status)return status;
+    void *cell=lookup_class(s,"Zeppelin.dll","Google.Common.Geometry","S2CellId");if(!cell)return leave_read(s,SILPH_MANAGED_CONTRACT);
+    SilphManagedRef text={0},id={0},point={0};SilphReadValue value={0};status=silph_managed_ascii(s->managed,token,(uint32_t)strlen(token),&text);
+    SilphReadArgument arg={.kind=SILPH_READ_REFERENCE,.value.reference=text};if(!status)status=call_internal(s,(SilphManagedRef){0},cell,"FromToken",SILPH_READ_BOXED,&arg,1,&value,NULL);
+    if(!status){id=value.reference;value.reference=(SilphManagedRef){0};status=call_internal(s,id,NULL,"ToLatLng",SILPH_READ_BOXED,NULL,0,&value,NULL);}
+    if(!status){point=value.reference;value.reference=(SilphManagedRef){0};status=call_internal(s,point,NULL,"get_LatDegrees",SILPH_READ_F64,NULL,0,&value,NULL);if(!status)memcpy(lat,&value.bits,8);}
+    if(!status){status=call_internal(s,point,NULL,"get_LngDegrees",SILPH_READ_F64,NULL,0,&value,NULL);if(!status)memcpy(lon,&value.bits,8);}
+    if(!status&&!coordinate(*lat,*lon))status=SILPH_MANAGED_CONTRACT;SilphManagedRef *refs[]={&text,&id,&point,&value.reference};for(unsigned i=0;i<4;i++){int freed=release_rpc_ref(s,refs[i]);if(!status)status=freed;}
+    return leave_read(s,status);
+}
+#endif

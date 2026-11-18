@@ -30,6 +30,19 @@ final class NativeSettings {
         if(!prefs.contains("filters")&&!k.getAll().isEmpty()){int filter=0;String[] keys={"hundo","nundo","shiny","shundo"};for(int i=0;i<4;i++)if(k.getBoolean(keys[i],false))filter|=1<<i;e.putInt("filters",filter);}
         if(!e.putBoolean("imported",true).commit())throw new IllegalStateException("Cannot save settings");
     }
+    private NativeSessionWire.Config huntingConfig(boolean readonly){
+        NativeSessionWire.Config c=new NativeSessionWire.Config();c.mode=7;c.quality=prefs.getInt("hunting.quality",4);c.delayMs=100;c.keep=255;c.maxCatches=prefs.getInt("hunting.maxCatches",0);
+        if(readonly){c.flags=NativeSessionWire.READ_ONLY;c.maxCatches=0;c.durationMs=300000;return c;}
+        c.flags=NativeSessionWire.CATCH|NativeSessionWire.SCENES;
+        if(prefs.getBoolean("hunting.curve",true))c.flags|=NativeSessionWire.CURVE;
+        if(prefs.getBoolean("hunting.berries",true)){c.berries=integers(prefs.getString("hunting.berriesOrder","706,708,701,705,703"));if(c.berries.length>0)c.flags|=NativeSessionWire.BERRIES;}
+        if(prefs.getBoolean("hunting.hideTrainerName",true))c.flags|=NativeSessionWire.TRAINER_NAME;
+        if(prefs.getBoolean("hunting.showIvNames",true))c.flags|=NativeSessionWire.IV_NAMES;
+        if(prefs.getBoolean("hunting.fixLocation",false))c.flags|=NativeSessionWire.FIX_LOCATION;
+        if(prefs.getBoolean("hunting.removeBuddy",false))c.flags|=NativeSessionWire.REMOVE_BUDDY;
+        if(c.maxCatches<0||c.maxCatches>50000||prefs.getInt("hunting.minutes",0)<0||prefs.getInt("hunting.minutes",0)>1440||prefs.getInt("hunting.radiusKm",0)<0||prefs.getInt("hunting.radiusKm",0)>20000)throw new IllegalArgumentException("Invalid Hunting limits");
+        return c;
+    }
     private long clock;
     private boolean timing;
     long elapsed(int mode){return prefs.getLong("stats"+mode+".elapsed",0);}
@@ -44,11 +57,13 @@ final class NativeSettings {
     void saveEnhancerBerries(String names,boolean buddy){saveBerries(names,buddy?"enh.buddyBerriesOrder":"enh.berriesOrder");}
     void saveEventBerries(String names){saveBerries(names,"event.berries");}
     void saveRaidBerries(String names){saveBerries(names,"raid.berriesOrder");}
-    boolean fixLocation(int mode){return prefs.getBoolean(mode==6?"raid.fixLocation":mode==5?"enh.fixLocation":"fixLocation",(mode==5||mode==6)&&prefs.getBoolean("fixLocation",false));}
-    boolean hideName(int mode){return mode==6||prefs.getBoolean(mode==5?"enh.hideTrainerName":"hideTrainerName",true);}
+    void saveHuntingBerries(String names){saveBerries(names,"hunting.berriesOrder");}
+    boolean fixLocation(int mode){return prefs.getBoolean(mode==7?"hunting.fixLocation":mode==6?"raid.fixLocation":mode==5?"enh.fixLocation":"fixLocation",(mode==5||mode==6)&&prefs.getBoolean("fixLocation",false));}
+    boolean hideName(int mode){if(mode==7)return prefs.getBoolean("hunting.hideTrainerName",true);return mode==6||prefs.getBoolean(mode==5?"enh.hideTrainerName":"hideTrainerName",true);}
     NativeSessionState.Totals totals(int mode){if(mode==5)return new NativeSessionState.Totals();String p="stats"+mode+".";return new NativeSessionState.Totals(prefs.getLong(p+"caught",0),prefs.getLong(p+"fled",0),prefs.getLong(p+"spun",0),prefs.getLong(p+"discarded",0),prefs.getLong(p+"transferred",0),prefs.getLong(p+"encounters",0),prefs.getLong(p+"shinies",0),prefs.getLong(p+"xp",0),prefs.getLong(p+"stardust",0));}
     void save(int mode,NativeSessionState.Totals t){if(mode==5)return;String p="stats"+mode+".";prefs.edit().putLong(p+"caught",t.caught).putLong(p+"fled",t.fled).putLong(p+"spun",t.spun).putLong(p+"discarded",t.discarded).putLong(p+"transferred",t.transferred).putLong(p+"encounters",t.encounters).putLong(p+"shinies",t.shinies).putLong(p+"xp",t.xp).putLong(p+"stardust",t.stardust).apply();}
     NativeSessionWire.Config config(int mode,boolean readonly){
+        if(mode==7)return huntingConfig(readonly);
         if(mode==6)return raidConfig(readonly);
         if(mode==NativeSessionWire.ENHANCER)return enhancerConfig(readonly);
         if(mode<1||mode>3)throw new IllegalArgumentException("Mode unavailable");
@@ -73,7 +88,7 @@ final class NativeSettings {
             if(limits.isEmpty())throw new IllegalArgumentException("Add item limits first");c.flags|=4;c.limits=limits.toArray(new int[0][]);
         }
         NativeSessionState.Totals t=totals(mode);
-        if(mode==1){c.maxCatches=(c.flags&1)!=0?remaining(prefs.getInt("catchesMax",4800),t.caught,"Catch"):0;c.maxSpins=(c.flags&2)!=0?remaining(prefs.getInt("spinsMax",2400),t.spun,"Spin"):0;
+        if(mode==1){if(!prefs.getBoolean("research.keepAll",true)){c.fieldResearch=(prefs.getBoolean("research.eternatus",true)?1:0)|(prefs.getBoolean("research.silver",true)?2:0);if(c.fieldResearch==0)throw new IllegalArgumentException("Select a field research reward");}c.maxCatches=(c.flags&1)!=0?remaining(prefs.getInt("catchesMax",4800),t.caught,"Catch"):0;c.maxSpins=(c.flags&2)!=0?remaining(prefs.getInt("spinsMax",2400),t.spun,"Spin"):0;
             if(prefs.getBoolean("farmer.tapTeleport",false))c.flags|=NativeSessionWire.ENH_TELEPORT;
             for(int id:dev.rootcatch.automation.PokemonSelection.parse(prefs.getString("species","")))c.select(id);
             if((c.flags&NativeSessionWire.EVENT_ACTIONS)!=0)EventSettings.apply(prefs,c);
@@ -132,6 +147,7 @@ final class NativeSettings {
             if(prefs.getBoolean("enh.megaBuddy",false))c.buddyFlags|=2;
         }
         if(prefs.getBoolean("enh.healRaidTeam",false))c.flags|=NativeSessionWire.ENH_RAID_HEAL;
+        c.collectionInfo=(prefs.getBoolean("enh.eggDetails",true)?1:0)|(prefs.getBoolean("enh.researchEncounters",true)?2:0);
         if(prefs.getBoolean("enh.transfer",false))c.flags|=NativeSessionWire.ENH_TRANSFER;
         c.keep=prefs.getInt("enh.keep",95)|(prefs.getBoolean("enh.keepGoPass",true)?128:0);
         for(int id:dev.rootcatch.automation.PokemonSelection.parse(prefs.getString("enh.keepSpecies",dev.rootcatch.automation.PokemonSelection.KEEP_DEFAULT)))c.retain(id);

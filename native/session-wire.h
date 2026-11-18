@@ -6,13 +6,17 @@
 #define SILPH_SNAPSHOT_BYTES 256u
 #define SILPH_CONFIG_MAGIC UINT64_C(0x3147464348504c53)
 #define SILPH_SNAPSHOT_MAGIC UINT64_C(0x3154415348504c53)
-enum {SILPH_MODE_FARMER=1,SILPH_MODE_KECLEON=2,SILPH_MODE_ROCKET=3,SILPH_MODE_ENHANCER=5};
+enum {SILPH_MODE_FARMER=1,SILPH_MODE_KECLEON=2,SILPH_MODE_ROCKET=3,SILPH_MODE_ENHANCER=5,SILPH_MODE_HUNTING=7};
 #ifdef SILPH_ENABLE_ENHANCER
 #define SILPH_MODE_MAX 5u
 #else
 #define SILPH_MODE_MAX 3u
 #endif
-static inline int silph_mode_valid(uint32_t mode){return mode>=1&&mode<=SILPH_MODE_MAX&&mode!=4;}
+static inline int silph_mode_valid(uint32_t mode){return (mode>=1&&mode<=3)||mode==5
+#ifdef SILPH_ENABLE_HUNTING
+    ||mode==SILPH_MODE_HUNTING
+#endif
+    ;}
 #define SILPH_ENH_FAST 262144u
 #define SILPH_ENH_INTRO 524288u
 #define SILPH_ENH_ROCKET 1048576u
@@ -40,7 +44,7 @@ typedef struct {
 #endif
 #ifdef SILPH_PRESENT_SCOPED
     uint8_t keep_species[136];
-    uint32_t buddy_flags,buddy_berry_count,buddy_berries[5];
+    uint32_t buddy_flags,buddy_berry_count,buddy_berries[5],field_research,collection_info;
 #endif
 } SilphSessionConfig;
 typedef struct {

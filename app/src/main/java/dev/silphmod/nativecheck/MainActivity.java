@@ -17,8 +17,8 @@ public final class MainActivity extends Activity {
     private NativeSettings settings;
     private ModeUi ui;
     private int mode,pendingStart;
-    private TextView status,details,elapsed,raidLocationClock,raidCooldown,raidRemaining,mightyHint;
-    private CompoundButton mightyAll,mightyShiny,mightyHundo;
+    private TextView status,details,elapsed,raidLocationClock,raidCooldown,raidRemaining,mightyHint,researchHint;
+    private CompoundButton mightyAll,mightyShiny,mightyHundo,researchAll,researchCandy,researchSilver;
     private final TextView[] metrics=new TextView[6];
     private Button start,export,clear;
     private String inputError="";
@@ -37,7 +37,7 @@ public final class MainActivity extends Activity {
     private void eventBalls(){new SettingsDialogs(this).ballsDialog(settings.prefs.getString("event.balls","7,3,2,1"),value->{settings.prefs.edit().putString("event.balls",value).apply();show();});}
     private void section(LinearLayout parent,String label){TextView title=ui.text(label,15,ModeUi.ACCENT);title.setTypeface(null,android.graphics.Typeface.BOLD);title.setAccessibilityHeading(true);ui.space(parent,12);parent.addView(title);}
     private void show(){
-        edits.clear();mightyAll=mightyShiny=mightyHundo=null;mightyHint=null;inputError="";ui=new ModeUi(this);status=null;start=null;raidLocationClock=null;raidCooldown=null;raidRemaining=null;
+        edits.clear();mightyAll=mightyShiny=mightyHundo=null;researchAll=researchCandy=researchSilver=null;mightyHint=null;inputError="";ui=new ModeUi(this);status=null;start=null;raidLocationClock=null;raidCooldown=null;raidRemaining=null;
         if(mode!=6&&!NativeSessionWire.validMode(mode)){
             ui.title("SilphMod",BuildConfig.VERSION_NAME);
             LinearLayout enhancer=ui.card("ENHANCER MODE");enhancer.addView(ui.text("Manual play & quick encounters",23,ModeUi.TEXT));
@@ -46,19 +46,21 @@ public final class MainActivity extends Activity {
             LinearLayout farmer=ui.card("FARMER");farmer.addView(ui.text("Autocatch & autospin",23,ModeUi.TEXT));
             farmer.addView(ui.text("Wild catches · PokéStops · Inventory",14,ModeUi.MUTED));
             ui.button(farmer,"Open Farmer",true).setOnClickListener(v->open(1));
+            LinearLayout raid=ui.card("AUTORAID");raid.addView(ui.text("Raid battles & automatic catches",23,ModeUi.TEXT));raid.addView(ui.text("28 cities · Free & premium passes · Team care",14,ModeUi.MUTED));ui.button(raid,"Open AutoRaid",false).setOnClickListener(v->open(6));
             LinearLayout kec=ui.card("KECLEON (BETA)");kec.addView(ui.text("Automatic Kecleon search & catch",23,ModeUi.TEXT));
             kec.addView(ui.text("Candidate queue · Automatic jumps · IV & shiny filters",14,ModeUi.MUTED));
             ui.button(kec,"Open Kecleon (BETA)",false).setOnClickListener(v->open(2));
             LinearLayout rocket=ui.card("AUTOROCKET (BETA)");rocket.addView(ui.text("Automatic grunt battles & shadow catches",23,ModeUi.TEXT));
             rocket.addView(ui.text("Rocket queue · Team healing · IV & shiny filters",14,ModeUi.MUTED));ui.button(rocket,"Open AutoRocket (BETA)",false).setOnClickListener(v->open(3));
-            LinearLayout raid=ui.card("AUTORAID");raid.addView(ui.text("Raid battles & automatic catches",23,ModeUi.TEXT));raid.addView(ui.text("28 cities · Free & premium passes · Team care",14,ModeUi.MUTED));ui.button(raid,"Open AutoRaid",false).setOnClickListener(v->open(6));
+            LinearLayout hunt=ui.card("AUTOHUNTING (EXPERIMENTAL)");hunt.addView(ui.text("Shiny 100 IV hunting",23,ModeUi.TEXT));hunt.addView(ui.text("Adaptive candidate queue · Verified encounters · All catches kept",14,ModeUi.MUTED));ui.button(hunt,"Open AutoHunting",false).setOnClickListener(v->open(7));
             ui.show();return;
         }
         ui.button(ui.page,"‹  Modes",false).setOnClickListener(v->{mode=0;show();});
-        ui.title(mode==6?"AutoRaid":mode==5?"Enhancer Mode":mode==1?"Farmer":mode==2?"Kecleon (BETA)":"AutoRocket (BETA)","SilphMod");
+        ui.title(mode==7?"AUTOHUNTING (EXPERIMENTAL)":mode==6?"AutoRaid":mode==5?"Enhancer Mode":mode==1?"Farmer":mode==2?"Kecleon (BETA)":"AutoRocket (BETA)","SilphMod");
         status=ui.text(CheckService.view.status,17,ModeUi.ACCENT);ui.page.addView(status);
         if(mode==5){elapsed=details=clear=null;enhancerSettings(new SettingsDialogs(this));serviceControls();ui.show();render();return;}
         if(mode==6){raidSettings();serviceControls();ui.show();render();return;}
+        if(mode==7){huntingSettings();serviceControls();ui.show();render();return;}
         elapsed=ui.text("00:00:00",16,ModeUi.MUTED);ui.page.addView(elapsed);
         details=ui.text("",13,ModeUi.MUTED);ui.page.addView(details);
         String[] labels=mode==5?new String[]{"Encounters","Catches","Rockets","Shinies","XP","Stardust"}:mode==1?new String[]{"Catches","PokéStops","Transferred","Items deleted","XP","Stardust"}:new String[]{mode==3?"Rockets":"Encounters","Catches","Shinies","Items deleted","XP","Stardust"};
@@ -122,6 +124,7 @@ public final class MainActivity extends Activity {
         setting(itemOptions,"Item limits",itemSummary()).setOnClickListener(v->dialogs.itemsDialog(settings.prefs.getString("limits",""),value->{settings.prefs.edit().putString("limits",value).apply();show();}));
         clean.setOnCheckedChangeListener((v,on)->{settings.prefs.edit().putBoolean("clean",on).apply();itemOptions.setVisibility(on?View.VISIBLE:View.GONE);});itemOptions.setVisibility(clean.isChecked()?View.VISIBLE:View.GONE);
         if(mode==1){
+            fieldResearchSettings();
             LinearLayout movement=ui.card("Map");check(movement,"Double tap to teleport","farmer.tapTeleport",false);
             LinearLayout buddy=ui.card("Buddy");
             check(buddy,"Feed buddy","feedBuddy",false);
@@ -143,6 +146,37 @@ public final class MainActivity extends Activity {
         toggle(game,"Hide trainer name","hideTrainerName",true);
         Button engine=ui.button(ui.page,"Engine settings",false);edits.add(engine);engine.setOnClickListener(v->engineDialog());
         serviceControls();ui.show();render();
+    }
+    private void fieldResearchSettings(){
+        LinearLayout card=ui.card("Field research");
+        researchAll=check(card,"Keep all compatible field research","research.keepAll",true);
+        card.addView(ui.text("Make an Excellent Throw",16,ModeUi.TEXT));
+        researchCandy=check(card,"25 Eternatus Candy","research.eternatus",true);
+        researchSilver=check(card,"1 Silver Pinap Berry","research.silver",true);
+        researchHint=ui.text("",12,ModeUi.MUTED);card.addView(researchHint);
+        researchAll.setOnCheckedChangeListener((v,on)->{settings.prefs.edit().putBoolean("research.keepAll",on).apply();renderResearchFilters(CheckService.view.running);});renderResearchFilters(CheckService.view.running);
+    }
+    private void renderResearchFilters(boolean running){if(researchAll==null)return;boolean enabled=!running&&!researchAll.isChecked();researchCandy.setEnabled(enabled);researchSilver.setEnabled(enabled);set(researchHint,researchAll.isChecked()?"Completes compatible field research automatically":"Keeps the selected rewards and discards other PokéStop tasks");}
+    private void huntingSettings(){
+        elapsed=ui.text("00:00:00",16,ModeUi.MUTED);ui.page.addView(elapsed);details=ui.text("",13,ModeUi.MUTED);ui.page.addView(details);
+        String[] labels={"Encounters","Catches","Shinies","Skipped","XP","Stardust"};for(int row=0;row<3;row++){LinearLayout line=ui.row();ui.page.addView(line);for(int col=0;col<2;col++)metrics[row*2+col]=ui.metric(line,labels[row*2+col]);}
+        clear=ui.button(ui.page,"Clear statistics",false);clear.setOnClickListener(v->{if(CheckService.view.running)return;settings.save(7,new NativeSessionState.Totals());settings.prefs.edit().putLong("stats7.elapsed",0).apply();render();});
+        LinearLayout search=ui.card("Search");search.addView(ui.text("Only shiny 15/15/15 Pokémon",19,ModeUi.TEXT));search.addView(ui.text("Confirms each encounter before catching · All catches are kept",13,ModeUi.MUTED));
+        int radius=settings.prefs.getInt("hunting.radiusKm",0),minutes=settings.prefs.getInt("hunting.minutes",0),maximum=settings.prefs.getInt("hunting.maxCatches",0);
+        setting(search,"Search area & session limits",(radius==0?"Worldwide":radius+" km from starting point")+" · "+(maximum==0?"Unlimited catches":maximum+" catches")+" · "+(minutes==0?"No time limit":minutes+" minutes")).setOnClickListener(v->huntingLimits());
+        LinearLayout catches=ui.card("Catches");SettingsDialogs dialogs=new SettingsDialogs(this);int q=Math.max(1,Math.min(4,settings.prefs.getInt("hunting.quality",4)));
+        setting(catches,"Throw quality",ThrowQuality.values()[q-1].label).setOnClickListener(v->dialogs.throwsDialog(ThrowQuality.values()[q-1],value->{settings.prefs.edit().putInt("hunting.quality",value.ordinal()+1).apply();show();}));
+        check(catches,"Curve ball","hunting.curve",true);
+        setting(catches,"Ball priority",EventSettings.ballNames(settings.prefs.getString("hunting.balls","3,2,1"))).setOnClickListener(v->dialogs.ballsDialog(settings.prefs.getString("hunting.balls","3,2,1"),value->{settings.prefs.edit().putString("hunting.balls",value).apply();show();}));
+        check(catches,"Use berries","hunting.berries",true);String berries=settings.berryNames("hunting.berriesOrder","706,708,701,705,703");
+        setting(catches,"Berry priority",berries.replace(","," · ")).setOnClickListener(v->dialogs.berriesDialog(berries,value->{settings.saveHuntingBerries(value);show();}));
+        LinearLayout visuals=ui.card("Features");check(visuals,"Fix error 12","hunting.fixLocation",false);check(visuals,"Hide trainer name","hunting.hideTrainerName",true);check(visuals,"Show IV names","hunting.showIvNames",true);check(visuals,"Remove buddy","hunting.removeBuddy",false);
+        LinearLayout engine=ui.card("Engine settings");setting(engine,"Engine settings","Proximity screen control").setOnClickListener(v->engineDialog());
+    }
+    private void huntingLimits(){
+        Dialog dialog=new Dialog(this,R.style.SettingsDialogTheme);LinearLayout page=ui.column();page.setPadding(ui.dp(22),ui.dp(20),ui.dp(22),ui.dp(20));page.setBackgroundColor(ModeUi.BG);page.addView(ui.text("Hunting limits",23,ModeUi.TEXT));
+        LinkedHashMap<String,EditText> inputs=new LinkedHashMap<>();input(page,inputs,"hunting.radiusKm","Search radius in km · 0 for worldwide",0);input(page,inputs,"hunting.maxCatches","Maximum catches · 0 for unlimited",0);input(page,inputs,"hunting.minutes","Session minutes · 0 for unlimited",0);
+        ui.button(page,"Save",true).setOnClickListener(v->{try{var edit=settings.prefs.edit();for(var pair:inputs.entrySet()){int n=Integer.parseInt(pair.getValue().getText().toString());int maximum=pair.getKey().equals("hunting.radiusKm")?20000:pair.getKey().equals("hunting.minutes")?1440:50000;if(n<0||n>maximum)throw new IllegalArgumentException();edit.putInt(pair.getKey(),n);}edit.apply();dialog.dismiss();show();}catch(Exception error){Toast.makeText(this,"Invalid value",Toast.LENGTH_SHORT).show();}});ui.button(page,"Cancel",false).setOnClickListener(v->dialog.dismiss());dialog.setContentView(page);dialog.show();if(dialog.getWindow()!=null)dialog.getWindow().setLayout(Math.min(getResources().getDisplayMetrics().widthPixels-ui.dp(32),ui.dp(420)),-2);
     }
     private void serviceControls(){
         start=ui.button(ui.controls,"Start service",true);start.setOnClickListener(v->{if(CheckService.view.running){startService(new Intent(this,CheckService.class).setAction(CheckService.STOP));return;}
@@ -168,7 +202,7 @@ public final class MainActivity extends Activity {
         long[] values=mode==5?new long[]{t.encounters,t.caught,t.spun,t.shinies,t.xp,t.stardust}:mode==1?new long[]{t.caught,t.spun,t.transferred,t.discarded,t.xp,t.stardust}:new long[]{mode==3||mode==6?t.spun:t.encounters,t.caught,t.shinies,t.discarded,t.xp,t.stardust};
         if(mode!=5){long seconds=settings.elapsed(mode)/1000;set(elapsed,String.format(Locale.US,"%02d:%02d:%02d",seconds/3600,seconds/60%60,seconds%60));
         for(int i=0;i<6;i++)set(metrics[i],String.format(Locale.US,"%,d",values[i]));}
-        set(start,value.running?"Stop service":"Start service");if(clear!=null)clear.setEnabled(!value.running);for(View edit:edits)if(edit!=mightyShiny&&edit!=mightyHundo)edit.setEnabled(!value.running);renderMightyFilters(value.running);
+        set(start,value.running?"Stop service":"Start service");if(clear!=null)clear.setEnabled(!value.running);for(View edit:edits)if(edit!=mightyShiny&&edit!=mightyHundo)edit.setEnabled(!value.running);renderMightyFilters(value.running);renderResearchFilters(value.running);
     }
     private void renderMightyFilters(boolean running){
         if(mightyAll==null)return;boolean all=mightyAll.isChecked();mightyShiny.setEnabled(!running&&!all);mightyHundo.setEnabled(!running&&!all);
@@ -199,7 +233,7 @@ public final class MainActivity extends Activity {
     private void engineDialog(){
         Dialog dialog=new Dialog(this,R.style.SettingsDialogTheme);LinearLayout page=ui.column();page.setPadding(ui.dp(22),ui.dp(20),ui.dp(22),ui.dp(20));page.setBackgroundColor(ModeUi.BG);
         page.addView(ui.text("Engine settings",23,ModeUi.TEXT));
-        LinkedHashMap<String,EditText> inputs=new LinkedHashMap<>();if(mode!=6)input(page,inputs,"delay","Action interval (ms)",100);
+        LinkedHashMap<String,EditText> inputs=new LinkedHashMap<>();if(mode!=6&&mode!=7)input(page,inputs,"delay","Action interval (ms)",100);
         if(mode==1){input(page,inputs,"catchesMax","Maximum catches",4800);input(page,inputs,"spinsMax","Maximum spins",2400);}else if(mode==3)input(page,inputs,"rocketsMax","Maximum Rockets",700);else if(mode==2)input(page,inputs,"encountersMax","Maximum encounters",1000);
         boolean proximityAvailable=ProximityScreen.supported(this);Switch proximity=ui.toggle(page,"Screen off by proximity or face down",settings.prefs.getBoolean("engine.proximity."+mode,false));proximity.setEnabled(proximityAvailable);
         if(!proximityAvailable)page.addView(ui.text("Not available on this device",13,ModeUi.MUTED));
@@ -270,8 +304,8 @@ public final class MainActivity extends Activity {
         setting(buddy,"Berry priority",settings.berryNames("enh.buddyBerriesOrder","703,701,705").replace(","," · ")).setOnClickListener(v->dialogs.berriesDialog(settings.berryNames("enh.buddyBerriesOrder","703,701,705"),value->{settings.saveEnhancerBerries(value,true);show();}));
         CompoundButton mega=check(buddy,"Mega Evolve buddy","enh.megaBuddy",false);mega.setEnabled(!remove.isChecked());
         LinearLayout movement=ui.card("Map");toggle(movement,"Double tap to teleport","enh.tapTeleport",false);
-        movement.addView(ui.text("Double tap the map ground to move with your configured joystick",14,ModeUi.MUTED));
-        LinearLayout inventory=ui.card("Inventory tools");toggle(inventory,"Show IV names","enh.showIvNames",true);toggle(inventory,"Extended manual transfer","enh.extendedManualTransfer",false);
+        movement.addView(ui.text("Double tap the map or tap nearby Pokémon, raids and Power Spots to teleport",14,ModeUi.MUTED));
+        LinearLayout inventory=ui.card("Inventory tools");toggle(inventory,"Show IV names","enh.showIvNames",true);toggle(inventory,"Egg details","enh.eggDetails",true);toggle(inventory,"Research encounters","enh.researchEncounters",true);toggle(inventory,"Extended manual transfer","enh.extendedManualTransfer",false);
         LinearLayout game=ui.card("Game tools");toggle(game,"Skip scenes","enh.skipScenes",true);toggle(game,"Hide trainer name","enh.hideTrainerName",true);toggle(game,"Fast gift opening","enh.fastGiftOpening",true);
         toggle(game,"Auto-open gifts","enh.autoOpenGifts",false);toggle(game,"Auto-send gifts","enh.autoSendGifts",false);
 

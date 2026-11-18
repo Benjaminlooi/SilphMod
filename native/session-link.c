@@ -30,6 +30,9 @@ int silph_session_link_message(void *memory,const void *bytes,size_t count){
         SilphScheduleIdentity id={.pid=s->snapshot.pid,.process_ticks=s->snapshot.ticks,.session_hi=s->snapshot.session_hi,.session_lo=s->snapshot.session_lo,
             .account_hi=s->snapshot.account_hi,.account_lo=s->snapshot.account_lo};
         if(!s->configured||(s->mode!=SILPH_MODE_KECLEON&&s->mode!=SILPH_MODE_ROCKET
+#ifdef SILPH_ENABLE_HUNTING
+            &&s->mode!=SILPH_MODE_HUNTING
+#endif
 #ifdef SILPH_ENABLE_ENHANCER
             &&!(s->mode==5&&(s->config.flags&SILPH_ENH_AUTORAID))
 #endif
@@ -74,6 +77,9 @@ int silph_session_link_event(void *memory,const SilphKecleonEvent *next){
     uint8_t bytes[SILPH_KEC_EVENT_BYTES];if(silph_kec_event_encode(next,bytes,sizeof(bytes)))return SILPH_SCHEDULE_ARGUMENT;
     Link *s=memory;int status=lock(s);if(status)return status;
     if((s->mode!=SILPH_MODE_KECLEON&&s->mode!=SILPH_MODE_ROCKET
+#ifdef SILPH_ENABLE_HUNTING
+            &&s->mode!=SILPH_MODE_HUNTING
+#endif
 #ifdef SILPH_ENABLE_ENHANCER
         &&!(s->mode==5&&(s->config.flags&SILPH_ENH_AUTORAID))
 #endif

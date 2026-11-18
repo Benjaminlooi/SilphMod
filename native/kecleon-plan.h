@@ -17,6 +17,9 @@ int silph_kecleon_plan_open(void *,size_t,const SilphScheduleIdentity *,uint32_t
 int silph_kecleon_plan_target(void *,const SilphScheduleIdentity *,const SilphKecleonCandidate *,uint64_t);
 int silph_kecleon_plan_moved(void *,const SilphScheduleIdentity *,uint64_t,uint32_t,bool,uint64_t);
 int silph_kecleon_plan_scan(void *,const SilphScheduleIdentity *,uint64_t,const SilphGameStop *,uint64_t,uint64_t);
+#ifdef SILPH_PILOT_KECLEON
+int silph_kecleon_plan_absent(void *,const SilphScheduleIdentity *,uint64_t,const SilphGameStop *,uint32_t,uint32_t,uint64_t);
+#endif
 int silph_kecleon_plan_advance(void *,const SilphScheduleIdentity *,uint64_t);
 int silph_kecleon_plan_authorize(void *,const SilphScheduleIdentity *,uint64_t,bool,uint64_t);
 int silph_kecleon_plan_result(void *,const SilphScheduleIdentity *,uint64_t,const SilphKecleonMetrics *,uint64_t);

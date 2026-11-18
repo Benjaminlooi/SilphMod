@@ -29,6 +29,10 @@ int silph_config_validate(const SilphSessionConfig *c){
         ||(c->duration_ms&&c->duration_ms<1000))return SILPH_WIRE_ARGUMENT;
     if((c->flags&SILPH_ENH_LIGHT_GRAPHICS)&&!(c->flags&SILPH_ENH_AUTORAID))return SILPH_WIRE_ARGUMENT;
     if(c->flags&SILPH_CFG_READONLY){if(c->flags!=SILPH_CFG_READONLY||c->max_catches||c->max_spins||c->max_encounters||c->filters)return SILPH_WIRE_ARGUMENT;}
+
+#ifdef SILPH_ENABLE_HUNTING
+    else if(c->mode==SILPH_MODE_HUNTING){if(!(c->flags&SILPH_CFG_CATCH)||(c->flags&(SILPH_CFG_SPIN|SILPH_CFG_TRANSFER|SILPH_CFG_CLEAN))||c->max_spins||c->max_encounters||c->filters)return SILPH_WIRE_ARGUMENT;}
+#endif
     else if(c->mode==SILPH_MODE_FARMER){
         if(!(c->flags&7)||((c->flags&SILPH_CFG_CATCH)&&!c->max_catches)||c->max_encounters||c->filters
             ||(!(c->flags&SILPH_CFG_CATCH)&&(c->flags&(SILPH_CFG_TRANSFER|SILPH_CFG_BERRIES))))return SILPH_WIRE_ARGUMENT;
@@ -56,7 +60,8 @@ int silph_config_validate(const SilphSessionConfig *c){
     for(unsigned i=0;i<2;i++){uint32_t id=c->revive_order[i];if(i>=c->revive_count){if(id)return SILPH_WIRE_ARGUMENT;continue;}if(id<201||id>202)return SILPH_WIRE_ARGUMENT;for(unsigned j=0;j<i;j++)if(id==c->revive_order[j])return SILPH_WIRE_ARGUMENT;}
 #endif
     #ifdef SILPH_PRESENT_SCOPED
-    if(c->buddy_flags>3||c->buddy_berry_count>5||(c->keep_species[0]&1))return SILPH_WIRE_ARGUMENT;
+    if(c->buddy_flags>3||c->buddy_berry_count>5||(c->keep_species[0]&1)||c->field_research>3||(c->field_research&&(c->mode!=SILPH_MODE_FARMER||(c->flags&SILPH_CFG_READONLY))))return SILPH_WIRE_ARGUMENT;
+    if(c->collection_info>3||(c->collection_info&&(c->mode!=SILPH_MODE_ENHANCER||(c->flags&(SILPH_CFG_READONLY|SILPH_ENH_AUTORAID)))))return SILPH_WIRE_ARGUMENT;
     bool extra=c->buddy_flags||c->buddy_berry_count;
     for(unsigned i=0;i<136;i++)if(c->keep_species[i])extra=true;
     if(extra&&((c->mode!=SILPH_MODE_FARMER
@@ -88,6 +93,7 @@ int silph_config_encode(const SilphSessionConfig *c,void *memory,size_t bytes){
     memcpy(p+880,c->keep_species,136);p[1016]=(uint8_t)c->buddy_flags;uint32_t packed=c->buddy_berry_count;
     const uint32_t ids[]={701,703,705,706,708};
     for(unsigned i=0;i<c->buddy_berry_count;i++)for(unsigned j=0;j<5;j++)if(ids[j]==c->buddy_berries[i])packed|=(j+1)<<(3+3*i);
+    packed|=c->field_research<<18|c->collection_info<<20;
     for(unsigned i=0;i<3;i++)p[1017+i]=(uint8_t)(packed>>(8*i));
 #endif
     put32(p+1020,silph_wire_crc(p,1020));return 0;
@@ -113,6 +119,7 @@ int silph_config_decode(const void *memory,size_t bytes,SilphSessionConfig *out)
 #endif
     #ifdef SILPH_PRESENT_SCOPED
     memcpy(c.keep_species,p+880,136);c.buddy_flags=p[1016];uint32_t packed=(uint32_t)p[1017]|(uint32_t)p[1018]<<8|(uint32_t)p[1019]<<16;
+    c.field_research=(packed>>18)&3;c.collection_info=(packed>>20)&3;packed&=~(15u<<18);
     c.buddy_berry_count=packed&7;if(c.buddy_berry_count>5||(packed>>(3+3*c.buddy_berry_count)))return SILPH_WIRE_FORMAT;
     const uint32_t ids[]={701,703,705,706,708};for(unsigned i=0;i<c.buddy_berry_count;i++){uint32_t code=(packed>>(3+3*i))&7;if(code<1||code>5)return SILPH_WIRE_FORMAT;c.buddy_berries[i]=ids[code-1];}
 #endif

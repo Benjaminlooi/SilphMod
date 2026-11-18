@@ -16,6 +16,9 @@ typedef struct {
     char authorized_fort[161],authorized_incident[161];
     uint64_t started,scan_after,expires_ms;
     uint32_t opened,pending,active_item,berry_attempted,berry_suppressed;
+#ifdef SILPH_PILOT_KECLEON
+    uint64_t discovered_until;
+#endif
 } Kecleon;
 int silph_kecleon_candidate_validate(const SilphKecleonCandidate *c){
     if(!c||!c->request||!isfinite(c->latitude)||!isfinite(c->longitude)||fabs(c->latitude)>90||fabs(c->longitude)>180||!c->source_id[0])return SILPH_MANAGED_ARGUMENT;
@@ -55,6 +58,15 @@ static int drop(Kecleon *s,SilphManagedRef *ref){if(!ref->serial)return 0;int r=
 static double distance(double a,double b,double c,double d){
     double r=.017453292519943295,x=sin((a-c)*r/2),y=sin((b-d)*r/2),h=x*x+cos(a*r)*cos(c*r)*y*y;return 12742000*asin(sqrt(fmax(0,fmin(1,h))));
 }
+#ifdef SILPH_PILOT_KECLEON
+int silph_kecleon_bind_discovery(void *memory,const SilphGameStop *stop,uint64_t until){
+    Kecleon *s=memory;if(!s||!s->opened||s->started||!s->candidate.request||!stop||!until)return SILPH_MANAGED_STATE;
+    if(!stop->scan_complete||stop->matches!=1||stop->incident_type!=8||!stop->active||stop->complete||!stop->expires_ms||stop->expires_ms>INT64_MAX
+        ||!isfinite(stop->latitude)||!isfinite(stop->longitude)||fabs(stop->latitude)>90||fabs(stop->longitude)>180||distance(stop->latitude,stop->longitude,s->candidate.latitude,s->candidate.longitude)>3
+        ||strcmp(stop->fort,s->authorized_fort)||strcmp(stop->incident,s->authorized_incident))return SILPH_MANAGED_ARGUMENT;
+    s->stop=*stop;s->discovered_until=until;return 0;
+}
+#endif
 static int send(Kecleon *s,const SilphSchedulePermit *permit,uint32_t operation,uint64_t now){
     double lat=0,lon=0;int status=silph_game_read_position(s->game,&lat,&lon);
     if(!status&&distance(lat,lon,s->stop.latitude,s->stop.longitude)>50){s->metrics.state=SILPH_KECLEON_UNVERIFIED;return 0;}
@@ -106,6 +118,10 @@ int silph_kecleon_actions_tick(void *memory,const SilphSchedulePermit *permit,co
     if(!status&&(now-s->started>=UINT64_C(180000000000)||(s->expires_ms&&wall>=s->expires_ms))){s->metrics.state=SILPH_KECLEON_UNVERIFIED;if(s->pending)s->metrics.uncertain=1;}
     if(!status&&s->metrics.state==SILPH_KECLEON_WAIT&&now>=s->scan_after){
         s->scan_after=now+UINT64_C(1000000000);
+#ifdef SILPH_PILOT_KECLEON
+        if(s->discovered_until&&now<s->discovered_until){double lat=0,lon=0;status=silph_game_read_position(s->game,&lat,&lon);if(!status){s->stop.player_latitude=lat;s->stop.player_longitude=lon;s->stop.meters=distance(lat,lon,s->stop.latitude,s->stop.longitude);if(s->stop.meters>50)status=SILPH_MANAGED_NOT_READY;}}
+        else
+#endif
         status=s->candidate.request?silph_game_read_stop_at(s->game,50,s->candidate.latitude,s->candidate.longitude,3,&s->stop):silph_game_read_stop(s->game,50,8,NULL,NULL,&s->stop);
         if(status==SILPH_MANAGED_NOT_READY)status=0;
         else if(!status){

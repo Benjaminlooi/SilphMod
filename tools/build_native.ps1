@@ -45,3 +45,5 @@ foreach($mode in @('farmer','kecleon','rocket','enhancer')){
     Compile ($flags+$defines+$modeFlags+@('-fPIE','-pie',(Join-Path $source 'pilot-reader.c'),(Join-Path $source 'standalone/remote.c'),(Join-Path $source 'standalone/elf-symbol.c'),'-ldl','-o',(Join-Path $output ('libsilph-'+$mode+'-status.so'))))
 }
 Get-ChildItem -LiteralPath $output -File | Select-Object Name,Length
+
+& (Join-Path $PSScriptRoot 'build_hunting.ps1') -Ndk $Ndk -ShadowHook $ShadowHook

@@ -48,6 +48,9 @@ int silph_farmer_session_open(void *memory,size_t bytes,void *read,void *managed
 #ifdef SILPH_PILOT_SERVICE
     if(!status&&options->research){s->research=calloc(1,silph_research_size());if(!s->research)status=SILPH_MANAGED_CAPACITY;
         if(!status)status=silph_research_open(s->research,silph_research_size(),read,managed,game,identity,transfers,options->farmer.use_berries);
+#ifdef SILPH_PRESENT_SCOPED
+        if(!status)status=silph_research_filter(s->research,options->field_research);
+#endif
         if(!status){s->go_pass=calloc(1,silph_pass_size());if(!s->go_pass)status=SILPH_MANAGED_CAPACITY;else status=silph_pass_open(s->go_pass,silph_pass_size(),read,managed,game,identity);}}
 #endif
     #ifdef SILPH_PRESENT_SCOPED

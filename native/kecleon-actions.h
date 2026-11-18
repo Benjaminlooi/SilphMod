@@ -15,6 +15,9 @@ size_t silph_kecleon_actions_size(void);
 int silph_kecleon_actions_open(void *,size_t,void *,void *,void *,const SilphScheduleIdentity *,const SilphKecleonOptions *);
 int silph_kecleon_bind_candidate(void *,const SilphKecleonCandidate *);
 int silph_kecleon_bind_stop(void *,const char *,const char *);
+#ifdef SILPH_PILOT_KECLEON
+int silph_kecleon_bind_discovery(void *,const SilphGameStop *,uint64_t);
+#endif
 int silph_kecleon_candidate_validate(const SilphKecleonCandidate *);
 int silph_kecleon_actions_tick(void *,const SilphSchedulePermit *,const SilphGameSnapshot *,uint64_t,uint64_t,SilphKecleonMetrics *);
 int silph_kecleon_actions_close(void *);

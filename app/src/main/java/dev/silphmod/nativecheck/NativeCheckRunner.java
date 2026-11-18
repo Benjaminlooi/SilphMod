@@ -35,6 +35,8 @@ final class NativeCheckRunner {
     private final boolean readonly;
     private final BlockingQueue<NativeKecleonWire.Event> candidates=new ArrayBlockingQueue<>(16);
     private NativeKecleonHost kecleon;
+    private NativeHuntingHost hunting;
+    private volatile long huntingStartedAt;
     private NativeRocketHost rocket;
     private NativeEnhancerHost enhancer;
     private NativeRaidHost raid;
@@ -87,6 +89,9 @@ final class NativeCheckRunner {
     private long launchWallTime;
     private String namespaceCache;
     private String gameComponent;
+    private String enhancerRouteKey;
+    private int enhancerPreferredRoute=-1,enhancerAttemptRoute=-1;
+    private boolean enhancerRouteValidated;
     private boolean farmerMenuBlocked;
     private final java.util.LinkedHashMap<File,String> gameStageFiles=new java.util.LinkedHashMap<>();
     private File gameStageDirectory;
@@ -97,11 +102,11 @@ final class NativeCheckRunner {
         if(mode==5)return "Enhancer Mode\nManual assistance";NativeSessionController c=controller;NativeSessionState.Totals t=c==null?settings.totals(mode):c.totals();
         String counts=mode==1?"Catches "+t.caught+" · Spins "+t.spun+" · Transferred "+t.transferred:
             (mode==6?"Raids "+t.spun:mode==3?"Rockets "+t.spun:"Encounters "+t.encounters)+" · Catches "+t.caught+" · Shinies "+t.shinies;
-        String waiting=mode==6&&raid!=null?raid.waiting():"";
-        return(mode==6?"AutoRaid":mode==5?"Enhancer Mode":mode==1?"Farmer":mode==2?"Kecleon (BETA)":"AutoRocket (BETA)")+"\n"+counts+(waiting.isEmpty()?"":"\n"+waiting)+("\nItems deleted "+t.discarded)+
+        String waiting=mode==7&&hunting!=null?hunting.waiting():mode==6&&raid!=null?raid.waiting():"";
+        return(mode==7?"AutoHunting":mode==6?"AutoRaid":mode==5?"Enhancer Mode":mode==1?"Farmer":mode==2?"Kecleon (BETA)":"AutoRocket (BETA)")+"\n"+counts+(waiting.isEmpty()?"":"\n"+waiting)+((mode==7?"\nSkipped ":"\nItems deleted ")+t.discarded)+
             "\nXP "+((rewardsAvailable&1)!=0?t.xp:"—")+" · Stardust "+((rewardsAvailable&2)!=0?t.stardust:"—")+"\nTime "+String.format(java.util.Locale.US,"%02d:%02d:%02d",settings.elapsed(mode)/3600000,settings.elapsed(mode)/60000%60,settings.elapsed(mode)/1000%60);
     }
-    private String displayStatus(){String waiting=mode==6&&raid!=null?raid.waiting():"";return mode==6&&"Finding raids…".equals(status)&&!waiting.isEmpty()?waiting:status;}
+    private String displayStatus(){String waiting=mode==7&&hunting!=null?hunting.waiting():mode==6&&raid!=null?raid.waiting():"";return (mode==7&&"Active".equals(status)||mode==6&&"Finding raids…".equals(status))&&!waiting.isEmpty()?waiting:status;}
     private void status(String text){status=text;display.accept(displayStatus(),details());log.write("status",text);}
     Result run(){
         try{
@@ -242,9 +247,11 @@ final class NativeCheckRunner {
     private void releaseAttempt(boolean returnToApp) throws Exception {
             settings.elapsedPulse(mode,false);
             if(mode==3&&gamePid>1)try{log.write("rocket_native_details",command("logcat -d -v brief --pid="+gamePid+" -s SilphRocket:V SilphRuntime:I SilphPresentation:I | tail -c 18000",3000));}catch(Exception error){log.write("rocket_diagnostic_error",error.toString());}
-            if(mode==1&&gamePid>1)try{log.write("farmer_native_details",command("logcat -b all -d -v brief --pid="+gamePid+" -s SilphFarmer:I SilphEvent:I SilphRuntime:I SilphPresentation:I | tail -c 16000",3000));}catch(Exception error){log.write("farmer_diagnostic_error",error.toString());}
-            if((mode==5||mode==6)&&gamePid>1)try{log.write("enhancer_native_details",command("logcat -b all -d -v brief --pid="+gamePid+" -s SilphRaid:I SilphEnhancer:I SilphBuddy:I SilphRocket:I SilphRuntime:I SilphPresentation:I | tail -c 18000",3000));}catch(Exception error){log.write("enhancer_diagnostic_error",error.toString());}
+            if(mode==1&&gamePid>1)try{log.write("farmer_native_details",command("logcat -b all -d -v brief --pid="+gamePid+" -s SilphFarmer:I SilphEvent:I SilphResearch:I SilphRuntime:I SilphPresentation:I | tail -c 16000",3000));}catch(Exception error){log.write("farmer_diagnostic_error",error.toString());}
+            if((mode==5||mode==6)&&gamePid>1)try{log.write("enhancer_native_details",command("logcat -b all -d -v brief --pid="+gamePid+" -s SilphRaid:I SilphEnhancer:I SilphCollection:I SilphBuddy:I SilphRocket:I SilphRuntime:I SilphPresentation:I | tail -c 18000",3000));}catch(Exception error){log.write("enhancer_diagnostic_error",error.toString());}
             if(mode==2&&gamePid>1)try{log.write("kecleon_native_details",command("logcat -b all -d -v brief --pid="+gamePid+" -s SilphRuntime:I SilphFarmer:I SilphPresentation:I | tail -c 12000",3000));}catch(Exception error){log.write("kecleon_diagnostic_error",error.toString());}
+            if(hunting!=null){hunting.close();hunting=null;}
+            if(mode==7&&gamePid>1)try{log.write("hunting_native_details",command("logcat -b all -d -v brief --pid="+gamePid+" -s SilphHunting:I SilphRuntime:I | tail -c 64000",3000));}catch(Exception error){log.write("hunting_diagnostic_error",error.toString());}
             if(raid!=null){raid.close();raid=null;}if(kecleon!=null)kecleon.close();if(rocket!=null)rocket.close();if(enhancer!=null){enhancer.close();enhancer=null;}
             pulseQuit=true;if(pulseThread!=null)pulseThread.interrupt();focusQuit=true;if(focusThread!=null)focusThread.interrupt();
             if(client!=null){try{client.getOutputStream().close();client.waitFor(1500,TimeUnit.MILLISECONDS);}catch(Exception ignored){ }if(client.isAlive())client.destroyForcibly();}
@@ -302,7 +309,7 @@ final class NativeCheckRunner {
         File directory=new File(context.getApplicationInfo().nativeLibraryDir).getCanonicalFile();
         log.write("native_library_directory",directory.getAbsolutePath());
         if(!directory.getAbsolutePath().matches("/data/app/[A-Za-z0-9_./+=~-]+/lib/arm64"))throw new IOException("Invalid native library directory");
-        for(String name:new String[]{"libsilph-native-probe.so","libsilph-control.so","libsilph-farmer-check.so","libsilph-kecleon-check.so","libsilph-farmer-status.so","libsilph-kecleon-status.so","libsilph-rocket-check.so","libsilph-rocket-status.so","libsilph-enhancer-check.so","libsilph-enhancer-status.so","libshadowhook.so","libshadowhook_nothing.so"}){
+        for(String name:new String[]{"libsilph-native-probe.so","libsilph-control.so","libsilph-farmer-check.so","libsilph-kecleon-check.so","libsilph-farmer-status.so","libsilph-kecleon-status.so","libsilph-rocket-check.so","libsilph-rocket-status.so","libsilph-enhancer-check.so","libsilph-enhancer-status.so","libshadowhook.so","libshadowhook_nothing.so","libsilph-hunting-check.so","libsilph-hunting-status.so","libsilph-hunting-control.so"}){
             File file=new File(directory,name);if(!file.isFile()||!file.getCanonicalFile().getParentFile().equals(directory))throw new IOException("Native component missing: "+name);
             String actual=hash(file);if(!actual.equals(NativeArtifacts.hash(name)))throw new IOException("Native component integrity mismatch");log.write("component",name+" sha256="+actual);
         }
@@ -314,6 +321,11 @@ final class NativeCheckRunner {
         }
         String cache="route."+android.os.Build.FINGERPRINT.hashCode()+"."+GAME_SHA.substring(0,16);
         int preferred=settings.prefs.getInt(cache,2);if(preferred<0||preferred>3)preferred=2;
+        if(mode==5){
+            enhancerRouteKey=cache+".enhancer.stable";
+            if(enhancerPreferredRoute<0)enhancerPreferredRoute=StartupRoutePolicy.preferred(settings.prefs.getInt(enhancerRouteKey,preferred));
+            preferred=enhancerPreferredRoute;enhancerRouteValidated=false;
+        }
         String appearanceProfile="appearance.stable."+android.os.Build.FINGERPRINT.hashCode()+"."+GAME_SHA.substring(0,16)+".";
         appearanceCache=appearanceProfile+BuildConfig.VERSION_CODE;
         deferAppearance=NativeStagePolicy.stableAppearance(settings.prefs.getAll(),appearanceProfile,BuildConfig.VERSION_CODE);
@@ -322,7 +334,8 @@ final class NativeCheckRunner {
         for(;startupAttempts<10;){
             int attempt=startupAttempts++;
             int route=attempt==0?preferred:((preferred+attempt)%4);
-            try{launchAndLoad(directory,route,attempt==0&&!(settings.fixLocation(mode))&&settings.prefs.getInt("startup",0)!=1&&existing.matches("[0-9]+"));settings.prefs.edit().putInt(cache,route).apply();startupFailure=null;break;}
+            if(mode==5)enhancerAttemptRoute=route;
+            try{launchAndLoad(directory,route,mode!=7&&attempt==0&&!(settings.fixLocation(mode))&&settings.prefs.getInt("startup",0)!=1&&existing.matches("[0-9]+"));if(mode!=5)settings.prefs.edit().putInt(cache,route).apply();startupFailure=null;break;}
             catch(Exception error){startupFailure=error;log.write("startup_attempt","attempt="+(attempt+1)+" route="+route+" stage="+startupStage+" error="+errorText(error));checkStop();
                 startupFailureDetails(attempt+1);
                 if(earlyAppearance&&NativeStagePolicy.presentationFailure(startupStage,error.getMessage())){
@@ -338,14 +351,14 @@ final class NativeCheckRunner {
         NativeSessionWire.Config config=settings.config(mode,readonly);if(buddyHandled)config.flags&=~NativeSessionWire.REMOVE_BUDDY;config.pid=gamePid;config.ticks=ticks;config.sessionHi=Long.parseUnsignedLong(nonceText);config.sessionLo=1;
         config.encode();
         if(mode==1)log.write("farmer_configuration","delayMs="+config.delayMs+" flags="+config.flags+" quality="+config.quality+" itemLimits="+config.limits.length);
-        client=new ProcessBuilder("su","-c",quote(new File(directory,"libsilph-control.so").getAbsolutePath())+" "+gamePid+" "+ticks).redirectErrorStream(true).start();
+        client=new ProcessBuilder("su","-c",quote(new File(directory,mode==7?"libsilph-hunting-control.so":"libsilph-control.so").getAbsolutePath())+" "+gamePid+" "+ticks).redirectErrorStream(true).start();
         BufferedWriter writer=new BufferedWriter(new OutputStreamWriter(client.getOutputStream(),StandardCharsets.UTF_8));
         writer.write(nonceText);writer.write(' ');writer.write(controlKey);writer.newLine();writer.flush();controlKey=null;
         progressWatch=new NativeProgressWatch(SystemClock.elapsedRealtime());
         controller=new NativeSessionController(config,settings.totals(mode),text->{try{writer.write(text);writer.newLine();writer.flush();}catch(IOException error){throw new IllegalStateException("Native controller write failed",error);}},new NativeSessionController.Listener(){
-            public void status(String message){status=message;event("status",message);}
+            public void status(String message){if(mode==7&&huntingStartedAt==0&&"Active".equals(message))huntingStartedAt=SystemClock.elapsedRealtime();status=message;event("status",message);}
             public void update(NativeSessionWire.Snapshot snapshot,NativeSessionState.Totals totals){
-                if(enhancer!=null)enhancer.accept(snapshot);if(raid!=null)raid.snapshot(snapshot);
+                if(enhancer!=null)enhancer.accept(snapshot);if(raid!=null)raid.snapshot(snapshot);if(hunting!=null)hunting.snapshot(snapshot);
                 if(captureNotice!=null)captureNotice.accept(snapshot);
                 frames++;sequence=snapshot.sequence;rewardsAvailable=snapshot.rewardsAvailable;
                 progressWatch.snapshot(SystemClock.elapsedRealtime());
@@ -355,21 +368,22 @@ final class NativeCheckRunner {
                 nativeReason=snapshot.reason;nativeError=snapshot.error;if(mode==6&&snapshot.spun>raidRecoveryWins){raidRecoveryWins=snapshot.spun;raidScreenRecoveries=0;}
                 if((snapshot.flags&2)!=0){if(accountHi==0&&accountLo==0){accountHi=snapshot.accountHi;accountLo=snapshot.accountLo;}else if(accountHi!=snapshot.accountHi||accountLo!=snapshot.accountLo)throw new IllegalStateException("Account changed during recovery");}
                 long now=SystemClock.elapsedRealtime();
-                String key="state="+snapshot.state+" flags="+snapshot.flags+" error="+snapshot.error+" reason="+snapshot.reason+" catches="+snapshot.caught+" spins="+snapshot.spun+" transferred="+snapshot.transferred+" items="+snapshot.discarded+" encounters="+snapshot.encounters+" candidateState="+snapshot.candidateState+" xp="+snapshot.xp+" stardust="+snapshot.stardust+" rewardsAvailable="+snapshot.rewardsAvailable+" encounterId="+Long.toUnsignedString(snapshot.encounterId)+" capturedId="+Long.toUnsignedString(snapshot.capturedId)+" visualAvailable="+snapshot.visualAvailable+" visualFailed="+snapshot.visualFailed+" ivReads="+snapshot.ivReads+" nameUpdates="+snapshot.nameUpdates;
+                String key="state="+snapshot.state+" flags="+snapshot.flags+" error="+snapshot.error+" reason="+snapshot.reason+" catches="+snapshot.caught+" spins="+snapshot.spun+" transferred="+snapshot.transferred+(mode==7?" skipped=":" items=")+snapshot.discarded+" encounters="+snapshot.encounters+" candidateState="+snapshot.candidateState+" xp="+snapshot.xp+" stardust="+snapshot.stardust+" rewardsAvailable="+snapshot.rewardsAvailable+" encounterId="+Long.toUnsignedString(snapshot.encounterId)+" capturedId="+Long.toUnsignedString(snapshot.capturedId)+" visualAvailable="+snapshot.visualAvailable+" visualFailed="+snapshot.visualFailed+" ivReads="+snapshot.ivReads+" nameUpdates="+snapshot.nameUpdates;
 
                 key+=" locationStatus="+snapshot.locationStatus;
-                if(mode==5||mode==6)key+=" throws="+snapshot.throwsCount+" berries="+snapshot.berries+" fled="+snapshot.fled+" request="+snapshot.candidateRequest;
+                if(mode==5||mode==6||mode==7)key+=" throws="+snapshot.throwsCount+" berries="+snapshot.berries+" fled="+snapshot.fled+" request="+snapshot.candidateRequest;
                 if(mode==5)key+=" captureNotice="+snapshot.researchStatus;
                 if(mode==1)key+=" researchState="+snapshot.candidateState+" researchClaims="+(snapshot.candidateRequest&0xffffffffL)+" researchRemoved="+(snapshot.candidateRequest>>>32)+" researchStatus="+snapshot.researchStatus+" mapGesture="+snapshot.tapRequest;
                 if(!key.equals(snapshotKey)||now-snapshotLoggedAt>=5000){snapshotKey=key;snapshotLoggedAt=now;event("native_snapshot","sequence="+sequence+" "+key);}
             }
-            public void candidate(NativeKecleonWire.Event value){startupWorkStarted=true;event(mode==3?"rocket_native_event":"kecleon_native_event","request="+value.request+" phase="+value.phase+" reason="+value.reason+" verified="+value.verified+" source="+value.source+" fort="+value.fort+" incident="+value.incident);if(!candidates.offer(value)){streamFailed=true;event(mode==3?"rocket_queue":"kecleon_queue","overflow");}}
+            public void candidate(NativeKecleonWire.Event value){startupWorkStarted=true;event(mode==7?"hunting_native_event":mode==3?"rocket_native_event":"kecleon_native_event","request="+value.request+" phase="+value.phase+" reason="+value.reason+" verified="+value.verified+" source="+value.source+" fort="+value.fort+" incident="+value.incident);if(!candidates.offer(value)){streamFailed=true;event(mode==3?"rocket_queue":"kecleon_queue","overflow");}}
             public void reply(long executed){progressWatch.reply(SystemClock.elapsedRealtime(),executed);}
             public void finished(String reason,boolean confirmed){finishReason=reason;cleanup=confirmed;event("native_finished",reason+" cleanup="+confirmed);}
         });
         if(mode==3&&!readonly)rocket=new NativeRocketHost(context,controller,log,()->!stopping&&!controller.finished()&&focusActive&&SystemClock.elapsedRealtime()-focusAt<=2500);
         if(mode==2&&!readonly)kecleon=new NativeKecleonHost(context,controller,log,()->!stopping&&!controller.finished()&&focusActive&&SystemClock.elapsedRealtime()-focusAt<=2500);
         if(!readonly&&(mode==5||mode==1&&settings.prefs.getBoolean("farmer.tapTeleport",false)))enhancer=new NativeEnhancerHost(context,log,()->!stopping&&!controller.finished()&&focusActive&&SystemClock.elapsedRealtime()-focusAt<=2500);
+        if(mode==7&&!readonly)hunting=new NativeHuntingHost(context,controller,log,()->!stopping&&!controller.finished()&&focusActive&&SystemClock.elapsedRealtime()-focusAt<=2500);
         if(mode==6&&!readonly)raid=new NativeRaidHost(context,controller,log,()->!stopping&&!controller.finished()&&focusActive&&SystemClock.elapsedRealtime()-focusAt<=2500);
         startReader();
     }
@@ -381,12 +395,12 @@ final class NativeCheckRunner {
         if(launch==null||launch.getComponent()==null)throw new IOException("Game launch activity missing");
         String component=launch.getComponent().flattenToString();if(!component.matches("com\\.nianticlabs\\.pokemongo/[A-Za-z0-9_.$]+"))throw new IOException("Invalid game launch activity");
         gameComponent=component;
-        File probe=new File(directory,"libsilph-native-probe.so"),source=new File(directory,(mode==5||mode==6)?"libsilph-enhancer-check.so":mode==1?"libsilph-farmer-check.so":mode==2?"libsilph-kecleon-check.so":"libsilph-rocket-check.so");
+        File probe=new File(directory,"libsilph-native-probe.so"),source=new File(directory,mode==7?"libsilph-hunting-check.so":(mode==5||mode==6)?"libsilph-enhancer-check.so":mode==1?"libsilph-farmer-check.so":mode==2?"libsilph-kecleon-check.so":"libsilph-rocket-check.so");
         File payload=null;int bootstrapPid=0;long bootstrapTicks=0;
         if((settings.fixLocation(mode)))payload=gameNamespace?stageForGame(source):stage(directory,source);
         launchWallTime=System.currentTimeMillis();
         status("Opening Pokémon GO…");log.write("game_launch",command("am start "+((mode==5||mode==6)?"":"-W ")+"-n "+quote(component),15000));
-        boolean earlyVisuals=!readonly&&!deferAppearance&&settings.hideName(mode);
+        boolean earlyVisuals=mode!=7&&!readonly&&!deferAppearance&&settings.hideName(mode);
         if((settings.fixLocation(mode))&&!earlyVisuals){
             payload=bootstrapLocation(probe,payload,source,route);bootstrapPid=gamePid;bootstrapTicks=ticks;
         }
@@ -415,7 +429,7 @@ final class NativeCheckRunner {
                             presentationReady=NativeStagePolicy.presentationReady(command("logcat -d -v brief --pid="+pid+" -T "+quote(since)+" -s SilphVisual:I | tail -c 4096",3000),NativeStagePolicy.appearanceFeatures(settings.fixLocation(mode)));
                         }catch(IOException unavailable){log.write("startup_readiness_unavailable",unavailable.getMessage());}
                     }
-                    if(NativeStagePolicy.managedReady(mode==6?5:mode,stableMs,presentationReady)&&focus.active()){
+                    if(NativeStagePolicy.managedReady(mode==7?1:mode==6?5:mode,stableMs,presentationReady)&&focus.active()){
                         gamePid=pid;ticks=readTicks(pid);stableReady=true;
                         if(mode==5||mode==6)log.write("startup_readiness","source="+(presentationReady?"visual_bootstrap":"stability_fallback")+" stableMs="+stableMs+" launchMs="+(System.currentTimeMillis()-launchWallTime));break;
                     }
@@ -596,8 +610,8 @@ final class NativeCheckRunner {
             if(kind.equals("native_snapshot"))settings.save(mode,controller.totals());
             if(kind.equals("status")||kind.equals("native_snapshot"))display.accept(displayStatus(),details());
         }
-        NativeKecleonWire.Event candidate;while((candidate=candidates.poll())!=null){if(kecleon!=null)kecleon.accept(candidate);if(rocket!=null)rocket.accept(candidate);if(raid!=null)raid.accept(candidate);}
-        if(kecleon!=null)kecleon.tick();if(rocket!=null)rocket.tick();if(raid!=null)raid.tick();
+        NativeKecleonWire.Event candidate;while((candidate=candidates.poll())!=null){if(kecleon!=null)kecleon.accept(candidate);if(rocket!=null)rocket.accept(candidate);if(raid!=null)raid.accept(candidate);if(hunting!=null)hunting.accept(candidate);}
+        if(kecleon!=null)kecleon.tick();if(rocket!=null)rocket.tick();if(raid!=null)raid.tick();if(hunting!=null)hunting.tick();
         if(streamFailed)throw new IOException("Native control output invalid or overflowed");
     }
     private void event(String kind,String message){if(!lines.offer(kind+"\t"+message))droppedLogs++;}
@@ -605,12 +619,20 @@ final class NativeCheckRunner {
         long begin=SystemClock.elapsedRealtime(),lastPid=0,stopAt=0,lastFarmerStatus=begin,lastDisplay=begin;
         while(!controller.finished()){
             consume();if(controller.finished())break;
-            long now=SystemClock.elapsedRealtime();settings.elapsedPulse(mode,focusActive&&now-focusAt<=2500&&(mode==3||mode==6?controller.active():status.equals("Active"))&&!stopping);
+            long now=SystemClock.elapsedRealtime();settings.elapsedPulse(mode,focusActive&&now-focusAt<=2500&&(mode==3||mode==6||mode==7?controller.active():status.equals("Active"))&&!stopping);
+            if(mode==7&&huntingStartedAt>0){long limit=(long)settings.prefs.getInt("hunting.minutes",0)*60000;if(limit>0&&now-huntingStartedAt>=limit)controller.requestStop("Hunting session time limit reached");}
             if(stopping){controller.requestStop("Stopped by user");if(stopAt==0)stopAt=now;}
             if(now-lastDisplay>=1000){lastDisplay=now;display.accept(displayStatus(),details());}
             wakeOwnerForCleanup();
             if(readonly&&now-begin>360_000&&stopAt==0){controller.requestStop("Session time limit reached");stopAt=now;}
-            if(now-lastPid>=1000){if(readTicks(gamePid)!=ticks)throw new IOException("Game process changed");lastPid=now;}
+            if(now-lastPid>=1000){
+                if(readTicks(gamePid)!=ticks)throw new IOException("Game process changed");lastPid=now;
+                if(mode==5&&!enhancerRouteValidated&&StartupRoutePolicy.stable(connectedAt,now,frames,controller.active(),stopping,focusActive&&now-focusAt<=2500,nativeError,nativeReason)){
+                    settings.prefs.edit().putInt(enhancerRouteKey,enhancerAttemptRoute).apply();
+                    enhancerPreferredRoute=enhancerAttemptRoute;enhancerRouteValidated=true;
+                    log.write("startup_route_validated","mode=5 route="+enhancerAttemptRoute+" activeMs="+(now-connectedAt)+" frames="+frames);
+                }
+            }
             if(mode==1&&!stopping&&stopAt==0&&now-lastFarmerStatus>=15000){lastFarmerStatus=now;try{JSONObject view=readNativeStatus("farmer_performance");farmerMenuBlocked=view.optInt("farmerViewAvailable")==1&&view.optInt("farmerViewKind")==0;}catch(Exception error){log.write("farmer_performance_unavailable",error.toString());}}
             if(stopAt>0&&now-stopAt>10_000)throw new IOException("Native cleanup acknowledgement timed out");
             if(pulseFailure!=null)throw new IOException("Native control pulse failed",pulseFailure);
@@ -633,7 +655,7 @@ final class NativeCheckRunner {
         consume();log.write("telemetry","dropped="+droppedLogs);
     }
     private JSONObject readNativeStatus(String event) throws Exception {
-        File reader=new File(context.getApplicationInfo().nativeLibraryDir,(mode==5||mode==6)?"libsilph-enhancer-status.so":mode==1?"libsilph-farmer-status.so":mode==2?"libsilph-kecleon-status.so":"libsilph-rocket-status.so");
+        File reader=new File(context.getApplicationInfo().nativeLibraryDir,mode==7?"libsilph-hunting-status.so":(mode==5||mode==6)?"libsilph-enhancer-status.so":mode==1?"libsilph-farmer-status.so":mode==2?"libsilph-kecleon-status.so":"libsilph-rocket-status.so");
         JSONObject value=new JSONObject(command(quote(reader.getAbsolutePath())+" "+gamePid+" "+ticks+" "+statusAddress+" "+nonceText,4000));
         log.write(event,value.toString());return value;
     }
@@ -647,7 +669,7 @@ final class NativeCheckRunner {
     private void verifyCleanup() throws Exception {
         if(!cleanup){
             if(injected&&statusAddress!=null&&readTicks(gamePid)==ticks){
-                File diagnostic=new File(context.getApplicationInfo().nativeLibraryDir,(mode==5||mode==6)?"libsilph-enhancer-status.so":mode==1?"libsilph-farmer-status.so":mode==2?"libsilph-kecleon-status.so":"libsilph-rocket-status.so");
+                File diagnostic=new File(context.getApplicationInfo().nativeLibraryDir,mode==7?"libsilph-hunting-status.so":(mode==5||mode==6)?"libsilph-enhancer-status.so":mode==1?"libsilph-farmer-status.so":mode==2?"libsilph-kecleon-status.so":"libsilph-rocket-status.so");
                 JSONObject value=new JSONObject(command(quote(diagnostic.getAbsolutePath())+" "+gamePid+" "+ticks+" "+statusAddress+" "+nonceText,4000));log.write("native_failure_status",value.toString());
                 if(mode==1&&value.optInt("sessionReason")!=0){nativeReason=value.optInt("sessionReason");if(nativeReason==1)finishReason="Session catch limit reached";else if(nativeReason==2)finishReason="Session spin limit reached";}
                 cleanup=value.optInt("stopped")==1&&value.optInt("hookRemoved")==1&&value.optInt("remaining")==0&&value.getString("created").equals(value.getString("released"))&&value.optInt("locationRemaining")==0&&value.optInt("locationRefs")==0&&value.optInt("presentationHooks",-1)==0&&value.optInt("presentationRefs",-1)==0;
@@ -659,7 +681,7 @@ final class NativeCheckRunner {
             }
             return;
         }cleanup=false;
-        File reader=new File(context.getApplicationInfo().nativeLibraryDir,(mode==5||mode==6)?"libsilph-enhancer-status.so":mode==1?"libsilph-farmer-status.so":mode==2?"libsilph-kecleon-status.so":"libsilph-rocket-status.so");
+        File reader=new File(context.getApplicationInfo().nativeLibraryDir,mode==7?"libsilph-hunting-status.so":(mode==5||mode==6)?"libsilph-enhancer-status.so":mode==1?"libsilph-farmer-status.so":mode==2?"libsilph-kecleon-status.so":"libsilph-rocket-status.so");
         long end=SystemClock.elapsedRealtime()+8000;
         while(SystemClock.elapsedRealtime()<end){
             JSONObject value=new JSONObject(command(quote(reader.getAbsolutePath())+" "+gamePid+" "+ticks+" "+statusAddress+" "+nonceText,4000));
@@ -704,7 +726,7 @@ final class NativeCheckRunner {
         String root=directory.getAbsolutePath();
         if(!NativeStagePolicy.directory(root)||!root.equals(command("[ -d "+quote(root)+" ] && [ ! -L "+quote(root)+" ] && readlink -f "+quote(root),5000)))throw new IOException("Game native directory unavailable");
         gameStageDirectory=directory;
-        String observer=NativeStagePolicy.observer(mode==6?5:mode,NativeArtifacts.hash(source.getName()));
+        String observer=NativeStagePolicy.observer(mode==7?1:mode==6?5:mode,NativeArtifacts.hash(source.getName()));
         for(String name:new String[]{source.getName(),"libshadowhook.so","libshadowhook_nothing.so"}){
             File from=new File(source.getParentFile(),name),to=new File(directory,name.equals(source.getName())?observer:name);
             String path=to.getAbsolutePath(),expected=NativeArtifacts.hash(name);
