@@ -10,7 +10,10 @@ public final class BerryOptions {
     public static final String DEFAULT_ORDER = "RazzBerry,PinapBerry,NanabBerry";
     public static final List<String> ALLOWED = Collections.unmodifiableList(Arrays.asList(
             "RazzBerry", "PinapBerry", "NanabBerry", "GoldenRazzBerry", "GoldenPinapBerry"));
-    private BerryOptions() { }
+
+    private BerryOptions() {
+    }
+
     public static List<String> parse(String value) {
         if (value == null) throw new IllegalArgumentException("Invalid berry priority");
         if (value.isEmpty()) return Collections.emptyList();
@@ -19,8 +22,12 @@ public final class BerryOptions {
             throw new IllegalArgumentException("Invalid berry priority");
         return Collections.unmodifiableList(result);
     }
+
     public static String fromSavedValue(String value) {
-        try { return String.join(",", parse(value)); }
-        catch (IllegalArgumentException ignored) { return DEFAULT_ORDER; }
+        try {
+            return String.join(",", parse(value));
+        } catch (IllegalArgumentException ignored) {
+            return DEFAULT_ORDER;
+        }
     }
 }

@@ -3,7 +3,9 @@ package dev.silphmod.nativecheck;
 import dev.silphmod.nativecheck.R;
 
 final class ItemArtwork {
-    private ItemArtwork() { }
+    private ItemArtwork() {
+    }
+
     static int resource(int id) {
         return switch (id) {
             case 1 -> R.drawable.item_0001;

@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
@@ -6,23 +7,38 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.INTERNET" />
+
     <queries>
-        <intent><action android:name="theappninjas.gpsjoystick.TELEPORT" /></intent>
+        <intent>
+            <action android:name="theappninjas.gpsjoystick.TELEPORT" />
+        </intent>
+
         <package android:name="com.nianticlabs.pokemongo" />
         <package android:name="dev.silphmod.nativetest" />
         <package android:name="dev.silphmod.nativecheck" />
     </queries>
-    <application android:label="SilphMod" android:icon="@drawable/ic_launcher"
-        android:theme="@style/AppTheme" android:allowBackup="false"
+    <application
+        android:label="SilphMod"
+        android:icon="@drawable/ic_launcher"
+        android:theme="@style/AppTheme"
+        android:allowBackup="false"
         android:usesCleartextTraffic="false">
-        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <service android:name=".CheckService" android:exported="false" android:foregroundServiceType="specialUse">
-            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-started native gameplay automation and connection monitoring" />
+        <service
+            android:name=".CheckService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-started native gameplay automation and connection monitoring" />
         </service>
     </application>
 </manifest>

@@ -24,10 +24,13 @@ public final class RootShell implements Closeable {
     private volatile Session session;
     private volatile boolean closed;
 
-    public RootShell() { this("su"); }
+    public RootShell() {
+        this("su");
+    }
 
     RootShell(String... shellCommand) {
-        if (shellCommand == null || shellCommand.length == 0) throw new IllegalArgumentException("Empty shell command");
+        if (shellCommand == null || shellCommand.length == 0)
+            throw new IllegalArgumentException("Empty shell command");
         this.shellCommand = shellCommand.clone();
     }
 
@@ -36,7 +39,7 @@ public final class RootShell implements Closeable {
     }
 
     public Result execute(String command, long timeoutMs) throws IOException {
-        return execute(command,timeoutMs,null);
+        return execute(command, timeoutMs, null);
     }
 
     public Result execute(String command, long timeoutMs, Consumer<String> observer) throws IOException {
@@ -71,7 +74,7 @@ public final class RootShell implements Closeable {
                     LineEvent event;
                     try {
                         event = active.lines.poll(Math.min(remaining,
-                                TimeUnit.MILLISECONDS.toNanos(POLL_INTERVAL_MS)),
+                                        TimeUnit.MILLISECONDS.toNanos(POLL_INTERVAL_MS)),
                                 TimeUnit.NANOSECONDS);
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
@@ -93,16 +96,17 @@ public final class RootShell implements Closeable {
                         }
                         return new Result(code, output.toString().trim());
                     }
-                    if(output.length()+event.line.length()>131072)throw new IOException("Root response exceeded diagnostic limit");
+                    if (output.length() + event.line.length() > 131072)
+                        throw new IOException("Root response exceeded diagnostic limit");
                     output.append(event.line).append('\n');
-                    if(observer!=null)observer.accept(event.line);
+                    if (observer != null) observer.accept(event.line);
                 }
             } catch (IOException e) {
                 discard(active);
                 throw e;
             } catch (RuntimeException e) {
                 discard(active);
-                throw new IOException("Root output observer failed",e);
+                throw new IOException("Root output observer failed", e);
             }
         }
     }
@@ -169,7 +173,10 @@ public final class RootShell implements Closeable {
                     process.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    if(line.length()>32768||!lines.offer(new LineEvent(line, false))){process.destroyForcibly();break;}
+                    if (line.length() > 32768 || !lines.offer(new LineEvent(line, false))) {
+                        process.destroyForcibly();
+                        break;
+                    }
                 }
             } catch (IOException ignored) {
             } finally {
