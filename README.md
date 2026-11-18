@@ -2,14 +2,14 @@
 
 # SilphMod
 
-**English · [Español](spanish.md)**
+**English · [Español](spanish.md) · [한국어](korean.md)**
 
-Local automation for the original Pokémon GO on **rooted Android**, both on UGPhone and physical ARM64 phones. It catches nearby Pokémon, spins PokéStops, collects field, weekly, special and event research, claims GO Pass rewards, transfers new catches according to your filters and keeps the bag within the limits you choose.
-**Enhancer Mode** assists manual gameplay. **Kecleon (BETA)**, **AutoRocket (BETA)** and **AutoRaid** each have their own settings, notification and statistics.
+Local automation for the original Pokémon GO on **rooted Android**, both UGPhone and physical ARM64 phones. Catches nearby Pokémon, spins PokéStops, collects field, weekly, special and event research, claims GO Pass rewards, transfers new catches according to your filters and keeps the item bag within your chosen limits.
+**Enhancer Mode** assists manual play. **Farmer** and **AutoRaid** provide the main automatic features in this edition. **Kecleon (BETA)**, **AutoRocket (BETA)** and **AUTOHUNTING (EXPERIMENTAL)** remain in development, with their own settings and statistics.
 
 You configure the features, press **Start service** and follow the progress from the notification. **Stop** and **Export logs** let you stop the session and review its results. The interface, notifications and visual assets are in English.
 
-**Edition:** `2.7.6` · [MIT](LICENSE)
+**Edition:** `2.8.4` · [MIT](LICENSE)
 
 **Platform:** Android 10 or later, ARM64 and root. One APK for both UGPhone and physical phones.
 
@@ -23,6 +23,7 @@ You configure the features, press **Start service** and follow the progress from
   - [AutoRaid](#autoraid)
   - [Kecleon (BETA)](#kecleon-beta)
   - [AutoRocket (BETA)](#autorocket-beta)
+  - [AUTOHUNTING (EXPERIMENTAL)](#autohunting-experimental)
   - [Only catch: choosing which Pokémon to catch](#only-catch-choosing-which-pokémon-to-catch)
   - [Select Pokémon to keep](#select-pokémon-to-keep)
   - [Buddy](#buddy)
@@ -75,7 +76,7 @@ You configure the features, press **Start service** and follow the progress from
 | Connection | Adaptive selection among four startup routes, reusing the one that worked for the environment |
 | Installed identity | `dev.rootcatch.ugphonetest`, kept so earlier installations can be updated |
 
-The app brings together **Enhancer Mode**, **Farmer**, **Kecleon (BETA)**, **AutoRocket (BETA)** and **AutoRaid**, with independent settings. The automatic modes keep separate statistics. Startup adapts to **the Android version of the device or instance**.
+The app brings together **Enhancer Mode**, **Farmer**, **AutoRaid**, **Kecleon (BETA)**, **AutoRocket (BETA)** and **AUTOHUNTING (EXPERIMENTAL)**, with independent settings. Automatic modes keep separate statistics. Startup adapts to the **Android version of the device or instance**.
 
 ## Features
 
@@ -135,7 +136,9 @@ Assistance for manual gameplay: you open the encounter or battle and choose how 
 
 **AutoRocket** completes the battle against the grunt you open, catches its Shadow Pokémon and heals the team. **AutoRaid** attacks and dodges Charged Attacks in the raid you start with your chosen team; it continues when the active Pokémon changes. **Heal raid team after battle** allows the team to recover afterward, according to the items available.
 
-**Double tap to teleport** works from the map and becomes available again after leaving encounters and battles. It includes **Remove buddy**, buddy feeding and Mega Evolution, inventory tools, automatic gifts, a temporary name and scene skipping. Evolutions and Mega Evolutions skip their animation; evolving manually keeps the resulting Pokémon detail screen open.
+**Double tap to teleport** works from the map and becomes available again after leaving encounters and battles. Includes **Remove buddy**, buddy feeding and Mega Evolution, inventory tools, automatic gifts, temporary names and scene skipping. Evolutions and Mega Evolutions skip their animations.
+
+Tiles for nearby Pokémon, nearby raids and nearby Power Spots let you move to their location with **Double tap to teleport** enabled. Encounter information and manual tools remain available when you return to the map.
 
 **Transfer new catches** applies only to new catches from the session. It lets you keep shiny, 15/15/15, backgrounds, research and GO Pass encounters, as well as selected species. Legendary, Mythical and Ultra Beast Pokémon remain protected regardless of their source.
 
@@ -165,6 +168,8 @@ After victory, it skips the reward screens and catches without opening the encou
 
 ### Kecleon (BETA)
 
+A mode in development, with further improvements planned for searching and session continuity.
+
 This mode goes through **Moonani** candidates, moves with GPS JoyStick, looks for the corresponding PokéStop and checks its active incident. It resolves `fort_id`, incident and `encounter_id` from the game before opening the encounter.
 
 The HTML is processed row by row and candidates are stored in a temporary queue inside the app's private storage, without loading the whole page into memory. The list can grow without the previous caps on size, rows or candidates. Entries are offered one by one to the engine, with the same per-account history to avoid repeats. When the session is stopped, the temporary queue is deleted.
@@ -178,6 +183,8 @@ The filters **Only catch 15/15/15**, **Only catch 0/0/0**, **Only catch shiny** 
 Kecleon shares throw quality, berries, bag limits and inventory and presentation tools. Its statistics show **Encounters**, **Catches**, **Shinies**, **Items deleted**, **XP** and **Stardust**. It does not spin PokéStops or transfer the collection.
 
 ### AutoRocket (BETA)
+
+A mode in development, with further improvements planned for battle transitions and continuity between candidates.
 
 This mode goes through regular Grunt candidates from **NYCPokeMap**, checks their appearance and disappearance times and validates in the game the PokéStop and its active incident. The feed refreshes every **30 seconds**. If it finds a PokéStop without the expected Grunt or with a Kecleon, it moves on to the next candidate. This edition works with regular Grunts for now. **Rocket types** lets you choose which grunt types to process. Leaders are excluded from this selection.
 
@@ -196,6 +203,16 @@ In **Engine settings**, **Last cooldown location** lets you specify return coord
 **Maximum Rockets** limits accumulated completed battles and defaults to **700**. The statistics show **Rockets**, **Catches**, **Shinies**, **Items deleted**, **XP** and **Stardust**. **Clear statistics** resets those counters, the candidate history and the return location. Throw quality, berries and bag limits remain in the shared configuration.
 
 Encounters are caught without opening the camera. If the game presents the detail screen of the newly caught Pokémon or a size record, only the screen associated with that catch is closed. **Stop** cancels pending actions and leaving for another app pauses the mode; scrcpy, screenshots and recording keep the same focus handling as the Farmer. AutoRocket keeps its catches and does not transfer the collection.
+
+### AUTOHUNTING (EXPERIMENTAL)
+
+Visits **15/15/15** candidates and checks each encounter in the game. Catches only those that are also **shiny** and keeps every catch. It appears at the end of the mode list.
+
+**Search area & session limits** brings together the radius from the starting point, the maximum number of catches and session duration. A value of **0** enables worldwide searching or removes the catch or time limit, depending on the field. Includes throw quality, curve balls and its own ball and berry priorities.
+
+The queue organizes candidates and waiting times, avoids repeated checks and continues to the next locations when a spawn is no longer available. Cooldown is checked before catching. Statistics show **Encounters**, **Catches**, **Shinies**, **Skipped**, **XP** and **Stardust**.
+
+This mode remains in development. Upcoming improvements focus on search speed, candidate availability and continuity during long sessions.
 
 ### Only catch: choosing which Pokémon to catch
 
@@ -319,6 +336,8 @@ The engine uses objects and methods of the original process; the game client kee
 **Start service** opens Pokémon GO and checks version, libraries, process and their startup times. When **Fix error 12** is active, it prepares the location adapter first. Access to IL2CPP objects waits until the game's libraries are present and the **20-second** stability period is met.
 
 Startup offers four combinations: **ATTACH / FD**, **ATTACH / PATH**, **SEIZE / FD** and **SEIZE / PATH**. They change the connection mechanism and how the library is opened, not the engine or its policies. The route that worked is tied to the device and the game profile. There is a maximum of **ten attempts**, with confirmation that the previous attempt has exited before continuing.
+
+Enhancer keeps its own startup preference. It saves the route after checking sustained activity, engine responses and process continuity. Interrupted attempts preserve the sequence of available routes for the next check.
 
 Execution is bound to the process, the session and the account. Heartbeats and the focus query are kept separate from log writing and from the feed's network operations. The scheduler runs actions on the Unity thread and coordinates their pending requests.
 
@@ -487,7 +506,9 @@ The presentation queue is limited and the components are kept through controlled
 
 Field research is handled **always** during the Farmer, including the research that arrives from spinning PokéStops. The engine queries `IQuestService`, claims the tasks the game allows to be redeemed and processes the rewards of items, berries, XP, Stardust or encounters that it receives.
 
-The scope is identified by **QuestContext = 2** and its encounters by **EncounterType = 6**. Discarding is limited to this scope; special and event research follow their own claim flow. Incompatible field tasks, such as raids, trades, exploring kilometers and earning Candy with the buddy, and those of unknown type or condition are deleted to make room for others; the AR scan slot is kept. An already completed task is claimed before its discard is considered.
+The **Field research** section lets you keep **Keep all compatible field research** enabled or select **Make an Excellent Throw** tasks that award **25 Eternatus Candy** or **1 Silver Pinap Berry**. With the reward filter enabled, it keeps selected tasks and removes other PokéStop research. Checks continue when switching between compatible menus, and the cycle resumes after temporary game responses.
+
+The scope is identified by **QuestContext = 2** and its encounters by **EncounterType = 6**. Removal is limited to this scope; special and event research follow their own claiming flow. Incompatible field tasks, such as raids, trades, exploring kilometers and earning candy with the buddy, as well as unknown task types or conditions, are removed to make room for others; the AR scanning slot is preserved. With **Keep all compatible field research**, a completed task is claimed before considering its removal. The reward filter also checks completed tasks before claiming them.
 
 ```c
 if (context != 2 || redeemable > 1 || count > 32 ||
@@ -630,7 +651,7 @@ $env:SILPH_RAID_API = "https://your-service.example"
 
 Gradle builds the C components from [native](native) through [build_native.ps1](tools/build_native.ps1). The hook backend is obtained from a pinned ShadowHook revision and kept outside the publishable code, in `.dependencies/`. You can point to existing installations with `SILPH_NDK` and `SILPH_SHADOWHOOK`. The raid service address is supplied at build time through `SILPH_RAID_API` or the local `silph.raidApi` property.
 
-The build generates the **twelve native `.so` components** and their SHA-256 fingerprints. The service verifies them again before loading the engine. These files are built from C and the hook dependency. Gradle bundles them into the APK from `app/src/main/jniLibs/arm64-v8a/`.
+The build generates the **fifteen native `.so` components** and their SHA-256 hashes. The service verifies them again before loading the engine. These files are built from C and the hooking dependency. Gradle includes them in the APK from `app/src/main/jniLibs/arm64-v8a/`.
 
 Without a signing configuration, the release output is **unsigned**. Signing it requires the `SILPH_KEYSTORE`, `SILPH_STORE_PASSWORD`, `SILPH_KEY_ALIAS` and `SILPH_KEY_PASSWORD` keys. The keys stay out of the repository; updating an existing installation uses the same certificate.
 
@@ -652,6 +673,7 @@ SilphMod/
 ├── gradle/               # Build wrapper
 ├── LICENSE
 ├── NOTICE
+├── korean.md
 ├── spanish.md
 └── README.md
 ```
@@ -718,6 +740,12 @@ Farmer includes **Mighty Pokémon configuration**, separate ball and berry prior
 **2.7.5 optimizes AutoRaid** with bounded caches, fewer repeated reads and recovery of map transitions. It adds **Lightweight graphics**, with optional lower detail and rendering resolution while retaining battle and catch features.
 
 **2.7.6 adds Catch all mighty Pokémon** to catch all selected mighty Pokémon with their separate ball and berry priorities. **Only catch shiny mighty** and **Only catch 15/15/15 mighty** retain their previous selection when used again. Loaders, the other modes and transfer protections are preserved.
+
+**2.8.4 expands the Enhancer Mode tools** with movement from nearby item tiles and improvements to startup continuity.
+
+Farmer adds field research selection by reward, with **25 Eternatus Candy** and **1 Silver Pinap Berry** for tasks requiring one Excellent Throw. Task checks when switching menus and dismissal of gem, weekly challenge, reward and buddy information screens have been improved.
+
+**AUTOHUNTING (EXPERIMENTAL)** is added to visit candidates and catch only shiny **15/15/15** encounters. **Kecleon (BETA)**, **AutoRocket (BETA)** and **AUTOHUNTING (EXPERIMENTAL)** remain in development. **Enhancer Mode**, **Farmer** and **AutoRaid** provide the main features in this edition.
 
 License [MIT](LICENSE). Dependencies keep their notices in [NOTICE](NOTICE) and their licenses within the assets. Independent, personal project, with no affiliation to the game's rights holders or to any third parties.
 
