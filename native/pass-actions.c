@@ -28,7 +28,7 @@ static int send(Pass *s,const SilphSchedulePermit *p,uint32_t track,uint32_t ran
     Claim *c=claim(s,track,rank,now);if(!c)return 0;memset(c,0,sizeof(*c));memcpy(c->id,s->pass_id,strlen(s->pass_id)+1);c->track=track;c->rank=rank;c->terminal=1;s->claim_index=(uint32_t)(c-s->claims);
     SilphReadValue promise={0};s->metrics.operation=all?21:20;int r=silph_pass_claim(s->read,p,s->handler,s->id,track,rank,all,&promise);
     if(!r){s->metrics.requests++;uint64_t sequence=++s->sequence;r=silph_managed_promise_open_rpc(s->pending,silph_managed_promise_size(),s->read,s->managed,promise.reference,&s->identity,sequence,sequence,now,"Holoholo.Rpc","ClaimEventPassRewardsResponseProto");}
-    drop(s,&promise.reference);if(!r){s->metrics.state=6;s->due=now+UINT64_C(100000000);}return r;
+    drop(s,&promise.reference);if(!r){s->metrics.state=SILPH_PASS_CLAIMING;s->due=now+UINT64_C(100000000);}return r;
 }
 static int poll(Pass *s,uint64_t now){
     SilphPromiseMetrics m={0};int r=silph_managed_promise_poll(s->pending,&s->identity,now,&m);if(!r&&m.state==SILPH_PROMISE_WAITING)return 0;if(!r&&m.state!=SILPH_PROMISE_RESOLVED)r=SILPH_MANAGED_NOT_READY;
@@ -92,7 +92,7 @@ int silph_pass_tick(void *memory,const SilphSchedulePermit *p,const SilphGameSna
     else if(s->metrics.state==3)r=cached(s,capture&&accept,reward);
     else if(s->metrics.state==4)r=items(s,p,now);
     else if(s->metrics.state==5)r=slots(s,p,now,capture);
-    else if(s->metrics.state==6)r=poll(s,now);
+    else if(s->metrics.state==SILPH_PASS_CLAIMING)r=poll(s,now);
     if(r){s->metrics.error=s->metrics.operation*100+(uint32_t)r;silph_managed_promise_close(s->pending);next(s,now,true);s->due=now+UINT64_C(30000000000);}
     uint64_t elapsed=work_clock()-began;s->metrics.work_ns+=elapsed;if(elapsed>s->metrics.max_work_ns)s->metrics.max_work_ns=elapsed;*out=s->metrics;return 0;
 }

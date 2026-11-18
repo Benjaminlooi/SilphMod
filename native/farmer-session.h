@@ -21,7 +21,7 @@ typedef struct {
 typedef struct {
     SilphFarmerMetrics farmer;
     uint64_t spins,spin_requests,deleted,delete_requests,spin_xp,callbacks,farmer_ns,maintenance_ns,max_farmer_ns,max_maintenance_ns,followups,refreshes;
-    uint32_t state,reason,error,maintenance_state,spin_result;
+    uint32_t state,reason,error,maintenance_state,spin_result,activity;
     uint64_t spin_stardust;uint32_t reward_error;
     SilphResearchMetrics research;uint64_t research_ns,max_research_ns;
     SilphPassMetrics go_pass;

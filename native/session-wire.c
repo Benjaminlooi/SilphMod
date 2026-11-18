@@ -126,6 +126,7 @@ static int snapshot_valid(const SilphSessionSnapshot *s){
         &&s->mode>=1&&s->mode<=SILPH_MODE_MAX
 #endif
         &&s->state<=7&&s->flags<=15&&s->tap_request<=65535u&&(!s->tap_request||s->mode==SILPH_MODE_FARMER)&&(s->mode!=SILPH_MODE_FARMER||s->reason<=65535u)
+        &&(s->mode==SILPH_MODE_FARMER?s->candidate_state<=65535u&&s->farmer_activity<=65535u:!s->farmer_activity)
         &&s->rewards_available<=3&&s->research_status<=65535&&s->location_status<=65535&&!(s->visual_available&~7552u)&&!(s->visual_failed&~7552u)&&!(s->visual_available&s->visual_failed)
         &&isfinite(s->latitude)&&isfinite(s->longitude)&&fabs(s->latitude)<=90&&fabs(s->longitude)<=180;
 }
@@ -137,7 +138,8 @@ int silph_snapshot_encode(const SilphSessionSnapshot *s,void *memory,size_t byte
     const uint64_t b[]={s->ticks,s->session_hi,s->session_lo,s->sequence,s->account_hi,s->account_lo,s->caught,s->fled,s->spun,s->discarded,s->transferred,
         s->encounters,s->shinies,s->berries,s->throws,s->xp,s->stardust,s->encounter,s->captured,s->candidate_request};
     for(unsigned i=0;i<20;i++)put64(p+40+i*8,b[i]);uint64_t lat=0,lon=0;memcpy(&lat,&s->latitude,8);memcpy(&lon,&s->longitude,8);
-    put64(p+200,lat);put64(p+208,lon);put32(p+216,s->candidate_state);put32(p+220,s->rewards_available);
+    /* Farmer shares this word between its research state and current activity. */
+    put64(p+200,lat);put64(p+208,lon);put32(p+216,s->candidate_state|(s->farmer_activity<<16));put32(p+220,s->rewards_available);
     put32(p+224,s->visual_available);put32(p+228,s->visual_failed);put64(p+232,s->iv_reads);put64(p+240,s->name_updates);put32(p+248,s->research_status|(s->location_status<<16));put32(p+252,silph_wire_crc(p,252));return 0;
 }
 int silph_snapshot_decode(const void *memory,size_t bytes,SilphSessionSnapshot *out){
@@ -150,5 +152,6 @@ int silph_snapshot_decode(const void *memory,size_t bytes,SilphSessionSnapshot *
         &s.encounters,&s.shinies,&s.berries,&s.throws,&s.xp,&s.stardust,&s.encounter,&s.captured,&s.candidate_request};
     for(unsigned i=0;i<20;i++)*b[i]=get64(p+40+i*8);uint64_t lat=get64(p+200),lon=get64(p+208);memcpy(&s.latitude,&lat,8);memcpy(&s.longitude,&lon,8);
     s.candidate_state=get32(p+216);s.rewards_available=get32(p+220);s.visual_available=get32(p+224);s.visual_failed=get32(p+228);s.iv_reads=get64(p+232);s.name_updates=get64(p+240);s.research_status=get32(p+248)&65535u;s.location_status=get32(p+248)>>16;
+    if(s.mode==SILPH_MODE_FARMER){s.farmer_activity=s.candidate_state>>16;s.candidate_state&=65535u;}
     if(!snapshot_valid(&s))return SILPH_WIRE_ARGUMENT;*out=s;return 0;
 }

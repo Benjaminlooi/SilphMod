@@ -2,6 +2,7 @@
 #define SILPH_GIFT_ACTIONS_H
 #include "game-read.h"
 #include "scheduler.h"
+enum {SILPH_GIFT_WAITING=3};
 typedef struct {uint32_t state,error,operation,result;uint64_t opened,sent,requests,skipped,xp,stardust,converted;} SilphGiftMetrics;
 size_t silph_gift_size(void);
 int silph_gift_open(void *,size_t,void *,void *,void *,const SilphScheduleIdentity *,uint32_t);

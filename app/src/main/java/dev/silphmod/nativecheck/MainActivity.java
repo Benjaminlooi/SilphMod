@@ -5,6 +5,7 @@ import android.app.*;
 import android.content.*;
 import android.content.pm.PackageManager;
 import android.os.*;
+import android.provider.Settings;
 import android.text.InputType;
 import android.view.View;
 import android.widget.*;
@@ -123,6 +124,7 @@ public final class MainActivity extends Activity {
         clean.setOnCheckedChangeListener((v,on)->{settings.prefs.edit().putBoolean("clean",on).apply();itemOptions.setVisibility(on?View.VISIBLE:View.GONE);});itemOptions.setVisibility(clean.isChecked()?View.VISIBLE:View.GONE);
         if(mode==1){
             LinearLayout movement=ui.card("Map");check(movement,"Double tap to teleport","farmer.tapTeleport",false);
+            farmerOverlay(movement);
             LinearLayout buddy=ui.card("Buddy");
             check(buddy,"Feed buddy","feedBuddy",false);
             setting(buddy,"Berry priority",settings.buddyBerryNames().replace(","," · ")).setOnClickListener(v->dialogs.berriesDialog(settings.buddyBerryNames(),value->{settings.saveBuddyBerries(value);show();}));
@@ -160,7 +162,30 @@ public final class MainActivity extends Activity {
     }
     private void startMode(int selected){settings.config(selected,false);getPreferences(0).edit().putInt("mode",selected).apply();startForegroundService(new Intent(this,CheckService.class).setAction(CheckService.START).putExtra("mode",selected));}
     private void serviceError(Exception error){inputError=error.getMessage();if(status!=null)status.setText(inputError);Toast.makeText(this,inputError,Toast.LENGTH_LONG).show();}
-    @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(request==41&&pendingStart==5){int selected=pendingStart;pendingStart=0;if(!CheckService.view.running)try{startMode(selected);}catch(Exception error){serviceError(error);}}}
+    @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(request==41&&pendingStart==5){int selected=pendingStart;pendingStart=0;if(!CheckService.view.running)try{startMode(selected);}catch(Exception error){serviceError(error);}}
+        if(request==42){
+            settings.prefs.edit().putBoolean(FarmerActionOverlay.ENABLED,Settings.canDrawOverlays(this)).apply();
+            if(mode==1)show();
+        }
+    }
+    private void farmerOverlay(LinearLayout parent){
+        Switch enabled=ui.toggle(parent,"Show current action over Pokémon GO",
+                settings.prefs.getBoolean(FarmerActionOverlay.ENABLED,false)&&Settings.canDrawOverlays(this));
+        edits.add(enabled);
+        enabled.setOnCheckedChangeListener((button,on)->{
+            if(!on||Settings.canDrawOverlays(this)){
+                settings.prefs.edit().putBoolean(FarmerActionOverlay.ENABLED,on).apply();
+                return;
+            }
+            try{
+                startActivityForResult(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        android.net.Uri.fromParts("package",getPackageName(),null)),42);
+            }catch(ActivityNotFoundException|SecurityException unavailable){
+                enabled.setChecked(false);
+                Toast.makeText(this,"Android overlay settings are unavailable",Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
     private void open(int selected){mode=selected;getPreferences(0).edit().putInt("mode",mode).apply();show();}
     private void render(){
         if(status==null)return;if(mode==6&&raidRemaining!=null)set(raidRemaining,RaidProgress.remaining(settings.prefs)+" target victories remaining");if(mode==6&&raidLocationClock!=null){RaidLocations.Location city=RaidLocations.get(RaidLocationPrefs.selected(settings.prefs));set(raidLocationClock,RaidTime.local(city)+"\n"+RaidTime.zone(city));RaidTime.refresh();if(raidCooldown!=null)renderRaidCooldown(city);}CheckService.View value=CheckService.view;var t=settings.totals(mode);

@@ -560,6 +560,9 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
 #endif
 #ifdef SILPH_PILOT_ACTIONS
 #ifdef SILPH_PILOT_CONFIGURED
+#ifdef SILPH_FARMER_REFILL
+    uint32_t farmer_activity=0;
+#endif
     if(!(session_config.flags&SILPH_CFG_READONLY)
 #ifdef SILPH_PILOT_SERVICE
         &&!auxiliary_wait
@@ -692,6 +695,9 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
     if(!status)status=silph_farmer_session_tick(farmer_state,permit,&snapshot,now_ns(),&session);
 #endif
     actions=session.farmer;if(session.state!=SILPH_SESSION_RUNNING)actions.state=SILPH_FARMER_DONE;
+#ifdef SILPH_FARMER_REFILL
+    farmer_activity=session.activity;
+#endif
 #ifdef SILPH_PILOT_SERVICE
     session_research=session.research;session_xp=actions.xp+session.spin_xp+session.research.xp+session.go_pass.xp;session_dust=actions.stardust+session.spin_stardust+session.research.stardust+session.go_pass.stardust;
     session_reward_error=actions.reward_error?actions.reward_error:session.reward_error?session.reward_error:session.research.reward_error;session_fled=actions.fled;
@@ -755,6 +761,13 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
     if(!(session_config.flags&SILPH_CFG_READONLY)){session_snapshot.xp=session_xp;session_snapshot.stardust=session_dust;session_snapshot.rewards_available=session_reward_error?0:3;session_snapshot.fled=session_fled;}
     session_snapshot.candidate_request=session_research.claimed|(session_research.discarded<<32);session_snapshot.candidate_state=session_research.state;
     session_snapshot.research_status=session_research.error?session_research.operation*100+session_research.error:0;
+#ifdef SILPH_FARMER_REFILL
+    if(auxiliary_reason==10||auxiliary_reason==11)farmer_activity=0;
+    else if(auxiliary_reason==12||auxiliary_reason==13)farmer_activity=SILPH_FARMER_ACTIVITY_REMOVE_BUDDY;
+    else if(farmer_activity&&farmer_activity<=SILPH_FARMER_ACTIVITY_SEARCH&&gift_metrics.state==SILPH_GIFT_WAITING)
+        farmer_activity=SILPH_FARMER_ACTIVITY_GIFTS;
+    session_snapshot.farmer_activity=farmer_activity;
+#endif
 #ifdef SILPH_FARMER_MAP_GESTURE
     if((session_config.flags&SILPH_ENH_TELEPORT)&&farmer_view_metrics.taps){session_snapshot.tap_request=(uint32_t)((farmer_view_metrics.taps-1)%65535)+1;session_snapshot.latitude=farmer_view_metrics.latitude;session_snapshot.longitude=farmer_view_metrics.longitude;}
 #endif

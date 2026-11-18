@@ -46,6 +46,8 @@ final class NativeCheckRunner {
     private final BlockingQueue<String> lines=new ArrayBlockingQueue<>(128);
     private volatile boolean stopping,focusActive,focusQuit,streamFailed,streamEnded;
     private volatile long focusAt;
+    private volatile int farmerActivity;
+    private volatile long farmerActivityAt;
     private volatile NativeSessionController controller;
     private volatile NativeProgressWatch progressWatch;
     private volatile String status="Preparing…";
@@ -92,6 +94,11 @@ final class NativeCheckRunner {
     private File gameStageDirectory;
     NativeCheckRunner(Context context,int mode,CheckLog log,BiConsumer<String,String> display,java.util.function.Consumer<Boolean> foreground){this.context=context;this.mode=mode;this.log=log;this.display=display;this.foreground=foreground;captureNotice=mode==5?new CaptureNotice(context):null;settings=new NativeSettings(context);readonly=false;if(mode==3)NativeRocketHost.beginSession(context);}
     void stop(){stopping=true;if(captureNotice!=null)captureNotice.close();NativeSessionController current=controller;if(current!=null)current.requestStop("Stopped by user");}
+    int farmerActivity(){
+        long now=SystemClock.elapsedRealtime();
+        return focusActive&&!focusQuit&&!stopping&&!streamEnded&&!streamFailed
+                &&now-focusAt<=2500&&now-farmerActivityAt<=2500?farmerActivity:0;
+    }
     long progressSequence(){return sequence;}
     String details(){
         if(mode==5)return "Enhancer Mode\nManual assistance";NativeSessionController c=controller;NativeSessionState.Totals t=c==null?settings.totals(mode):c.totals();
@@ -240,6 +247,7 @@ final class NativeCheckRunner {
         powerState();
     }
     private void releaseAttempt(boolean returnToApp) throws Exception {
+            farmerActivity=0;
             settings.elapsedPulse(mode,false);
             if(mode==3&&gamePid>1)try{log.write("rocket_native_details",command("logcat -d -v brief --pid="+gamePid+" -s SilphRocket:V SilphRuntime:I SilphPresentation:I | tail -c 18000",3000));}catch(Exception error){log.write("rocket_diagnostic_error",error.toString());}
             if(mode==1&&gamePid>1)try{log.write("farmer_native_details",command("logcat -b all -d -v brief --pid="+gamePid+" -s SilphFarmer:I SilphEvent:I SilphRuntime:I SilphPresentation:I | tail -c 16000",3000));}catch(Exception error){log.write("farmer_diagnostic_error",error.toString());}
@@ -268,7 +276,7 @@ final class NativeCheckRunner {
     private void resetAttempt(){
         kecleon=null;rocket=null;controller=null;client=null;pulseThread=readerThread=focusThread=null;lines.clear();candidates.clear();
         focusActive=focusQuit=streamFailed=streamEnded=pulseQuit=stopAcknowledged=cleanupForeground=false;focusAt=0;pulseFailure=null;
-        frames=sequence=0;gamePid=0;ticks=0;snapshotKey="";snapshotLoggedAt=0;injected=cleanup=false;finishReason="";statusAddress=nonceText=null;
+        frames=sequence=0;gamePid=0;ticks=0;snapshotKey="";snapshotLoggedAt=0;farmerActivity=0;injected=cleanup=false;finishReason="";statusAddress=nonceText=null;
         startupWorkStarted=false;nativeReason=nativeError=0;raidRecoveryWins=0;progressWatch=null;controlKey=null;
         farmerMenuBlocked=false;
         connectedAt=lastGameActiveAt=0;confirmedWork=connectionDiagnosed=failedProcessAlive=failedProcessGone=failedWhileActive=false;exitReport=null;
@@ -355,6 +363,10 @@ final class NativeCheckRunner {
                 nativeReason=snapshot.reason;nativeError=snapshot.error;if(mode==6&&snapshot.spun>raidRecoveryWins){raidRecoveryWins=snapshot.spun;raidScreenRecoveries=0;}
                 if((snapshot.flags&2)!=0){if(accountHi==0&&accountLo==0){accountHi=snapshot.accountHi;accountLo=snapshot.accountLo;}else if(accountHi!=snapshot.accountHi||accountLo!=snapshot.accountLo)throw new IllegalStateException("Account changed during recovery");}
                 long now=SystemClock.elapsedRealtime();
+                if(mode==NativeSessionWire.FARMER){
+                    farmerActivityAt=now;
+                    farmerActivity=snapshot.state==2&&snapshot.error==0?snapshot.farmerActivity:0;
+                }
                 String key="state="+snapshot.state+" flags="+snapshot.flags+" error="+snapshot.error+" reason="+snapshot.reason+" catches="+snapshot.caught+" spins="+snapshot.spun+" transferred="+snapshot.transferred+" items="+snapshot.discarded+" encounters="+snapshot.encounters+" candidateState="+snapshot.candidateState+" xp="+snapshot.xp+" stardust="+snapshot.stardust+" rewardsAvailable="+snapshot.rewardsAvailable+" encounterId="+Long.toUnsignedString(snapshot.encounterId)+" capturedId="+Long.toUnsignedString(snapshot.capturedId)+" visualAvailable="+snapshot.visualAvailable+" visualFailed="+snapshot.visualFailed+" ivReads="+snapshot.ivReads+" nameUpdates="+snapshot.nameUpdates;
 
                 key+=" locationStatus="+snapshot.locationStatus;

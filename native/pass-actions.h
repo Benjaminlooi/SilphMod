@@ -2,6 +2,7 @@
 #define SILPH_PASS_ACTIONS_H
 #include "game-read.h"
 #include "managed-promise.h"
+enum {SILPH_PASS_CLAIMING=6};
 typedef struct {uint64_t scans,requests,claimed,encounters,xp,stardust,work_ns,max_work_ns;uint32_t state,error,operation,result;} SilphPassMetrics;
 size_t silph_pass_size(void);
 int silph_pass_open(void *,size_t,void *,void *,void *,const SilphScheduleIdentity *);

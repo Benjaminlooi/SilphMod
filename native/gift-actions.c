@@ -24,7 +24,7 @@ static int send(Gifts *s,const SilphSchedulePermit *p,uint32_t op,SilphManagedRe
     SilphReadValue v={0};s->metrics.operation=op;s->raw=op==4&&s->full;
     int r=s->raw?silph_gift_open_stardust(s->read,p,s->handler,s->player,args[0].value.bits,&v):silph_gift_invoke(s->read,p,op,ref,args,n,&v);
     if(!r&&!v.reference.serial)r=SILPH_MANAGED_CONTRACT;
-    if(!r){s->promise=v.reference;s->phase=op;s->started=now;s->metrics.requests++;s->metrics.state=3;s->due=now+UINT64_C(100000000);}
+    if(!r){s->promise=v.reference;s->phase=op;s->started=now;s->metrics.requests++;s->metrics.state=SILPH_GIFT_WAITING;s->due=now+UINT64_C(100000000);}
     else drop(s,&v.reference);return r;
 }
 static int iterator(Gifts *s,SilphManagedRef list,SilphManagedRef *out){

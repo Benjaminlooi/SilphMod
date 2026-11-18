@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "farmer-session.h"
+#include "session-wire.h"
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -94,6 +95,7 @@ static int maintenance_close(Session *s){
 static int poll(Session *s,uint64_t now){
     SilphMaintenanceMetrics m={0};int status=silph_maintenance_poll(s->maintenance,&s->identity,now,&m);
     s->metrics.maintenance_state=m.state;
+    if(!status&&m.requests)s->metrics.activity=s->lane==1?SILPH_FARMER_ACTIVITY_SPIN:SILPH_FARMER_ACTIVITY_DISCARD;
     if(!status&&(m.state==3||m.state==4)){
         if(s->lane==1){s->metrics.spin_requests+=m.requests;s->metrics.spins+=m.spins;s->metrics.spin_xp+=m.xp;s->metrics.spin_stardust+=m.stardust;if(m.reward_error)s->metrics.reward_error=m.reward_error;s->metrics.spin_result=m.result;remember_stop(s,&m);s->spin_due=now+UINT64_C(2000000000);
 #ifdef SILPH_PILOT_SERVICE
@@ -131,12 +133,23 @@ static int research_tick(Session *s,const SilphSchedulePermit *permit,const Silp
     uint64_t spent=clock_ns()-started;s->metrics.research_ns+=spent;if(spent>s->metrics.max_research_ns)s->metrics.max_research_ns=spent;return status;
 }
 #endif
+static uint32_t capture_activity(uint32_t state){
+    switch(state){
+        case SILPH_FARMER_ENCOUNTER:return SILPH_FARMER_ACTIVITY_ENCOUNTER;
+        case SILPH_FARMER_BERRY:return SILPH_FARMER_ACTIVITY_BERRY;
+        case SILPH_FARMER_RETRY:case SILPH_FARMER_CAPTURE:return SILPH_FARMER_ACTIVITY_CATCH;
+        case SILPH_FARMER_OWNED:case SILPH_FARMER_SYNC:return SILPH_FARMER_ACTIVITY_SYNC;
+        case SILPH_FARMER_TRANSFER:return SILPH_FARMER_ACTIVITY_TRANSFER;
+        default:return SILPH_FARMER_ACTIVITY_SEARCH;
+    }
+}
 int silph_farmer_session_tick(void *memory,const SilphSchedulePermit *permit,const SilphGameSnapshot *snapshot,uint64_t now,SilphFarmerSessionMetrics *output){
     if(!output)return SILPH_MANAGED_ARGUMENT;memset(output,0,sizeof(*output));Session *s=memory;
     if(!s||!s->opened||!snapshot||!now||!silph_schedule_permitted(permit,true))return SILPH_MANAGED_STATE;
     if(s->identity.account_hi!=snapshot->account_hi||s->identity.account_lo!=snapshot->account_lo)return SILPH_MANAGED_STALE;
     if(now<s->clock)return SILPH_MANAGED_STATE;s->clock=now;s->metrics.callbacks++;int status=0;uint64_t began=clock_ns();bool maintaining=false;
     if(s->metrics.state!=SILPH_SESSION_RUNNING){*output=s->metrics;return 0;}
+    s->metrics.activity=SILPH_FARMER_ACTIVITY_IDLE;
 #ifdef SILPH_PILOT_SERVICE
     bool research_stepped=false;
     if(s->go_pass){
@@ -151,7 +164,7 @@ int silph_farmer_session_tick(void *memory,const SilphSchedulePermit *permit,con
     if(!status&&s->research&&silph_research_pending(s->research)){research_stepped=true;status=research_tick(s,permit,snapshot,now,&maintaining);}
 #endif
     #ifdef SILPH_PRESENT_SCOPED
-    if(!status&&!maintaining&&s->buddy){bool busy=false;status=silph_buddy_care_tick(s->buddy,permit,snapshot,now,silph_farmer_session_idle(s),&busy);maintaining=busy;}
+    if(!status&&!maintaining&&s->buddy){bool busy=false;status=silph_buddy_care_tick(s->buddy,permit,snapshot,now,silph_farmer_session_idle(s),&busy);maintaining=busy;if(busy)s->metrics.activity=SILPH_FARMER_ACTIVITY_BUDDY;}
 #endif
     if(!status&&!maintaining&&s->lane){maintaining=true;status=poll(s,now);}
     else if(!status&&!maintaining){
@@ -232,6 +245,16 @@ int silph_farmer_session_tick(void *memory,const SilphSchedulePermit *permit,con
             }
 #endif
         }
+    }
+    if(s->metrics.activity==SILPH_FARMER_ACTIVITY_IDLE){
+        uint32_t capture=s->farmer_opened?capture_activity(s->metrics.farmer.state):SILPH_FARMER_ACTIVITY_IDLE;
+#ifdef SILPH_PILOT_SERVICE
+        if(capture<=SILPH_FARMER_ACTIVITY_SEARCH){
+            if(silph_research_pending(s->research))capture=SILPH_FARMER_ACTIVITY_RESEARCH;
+            else if(s->metrics.go_pass.state==SILPH_PASS_CLAIMING)capture=SILPH_FARMER_ACTIVITY_PASS;
+        }
+#endif
+        s->metrics.activity=capture;
     }
     if(!status&&s->metrics.state==SILPH_SESSION_RUNNING){
         if(s->farmer_opened&&s->metrics.farmer.state==SILPH_FARMER_DONE){s->metrics.state=SILPH_SESSION_DONE;s->metrics.reason=SILPH_SESSION_CATCH_LIMIT;}

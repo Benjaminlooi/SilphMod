@@ -76,7 +76,7 @@ public final class NativeSessionWire {
         for(int i=0;i<n;i++){int code=(packed>>>(3+3*i))&7;require(code>=1&&code<=5);c.buddyBerries[i]=ids[code-1];}c.validate();return c;
     }
     public static final class Snapshot {
-        public final int mode,state,error,reason,flags,pid,candidateState,rewardsAvailable,visualAvailable,visualFailed,researchStatus,locationStatus,tapRequest;
+        public final int mode,state,error,reason,flags,pid,candidateState,rewardsAvailable,visualAvailable,visualFailed,researchStatus,locationStatus,tapRequest,farmerActivity;
         public final long ivReads,nameUpdates;
         public final long ticks,sessionHi,sessionLo,sequence,accountHi,accountLo;
         public final long caught,fled,spun,discarded,transferred,encounters,shinies,berries,throwsCount,xp,stardust,encounterId,capturedId,candidateRequest;
@@ -86,7 +86,9 @@ public final class NativeSessionWire {
             ticks=b.getLong(40);sessionHi=b.getLong(48);sessionLo=b.getLong(56);sequence=b.getLong(64);accountHi=b.getLong(72);accountLo=b.getLong(80);
             caught=b.getLong(88);fled=b.getLong(96);spun=b.getLong(104);discarded=b.getLong(112);transferred=b.getLong(120);encounters=b.getLong(128);
             shinies=b.getLong(136);berries=b.getLong(144);throwsCount=b.getLong(152);xp=b.getLong(160);stardust=b.getLong(168);encounterId=b.getLong(176);capturedId=b.getLong(184);
-            candidateRequest=b.getLong(192);latitude=b.getDouble(200);longitude=b.getDouble(208);candidateState=b.getInt(216);rewardsAvailable=b.getInt(220);
+            candidateRequest=b.getLong(192);latitude=b.getDouble(200);longitude=b.getDouble(208);
+            int candidate=b.getInt(216);candidateState=mode==FARMER?candidate&65535:candidate;farmerActivity=mode==FARMER?candidate>>>16:0;
+            rewardsAvailable=b.getInt(220);
             visualAvailable=b.getInt(224);visualFailed=b.getInt(228);ivReads=b.getLong(232);nameUpdates=b.getLong(240);
             researchStatus=b.getInt(248)&65535;locationStatus=b.getInt(248)>>>16;
             require((visualAvailable&~7552)==0&&(visualFailed&~7552)==0&&(visualAvailable&visualFailed)==0&&ivReads>=0&&nameUpdates>=0);
