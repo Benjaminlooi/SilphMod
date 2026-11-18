@@ -1,5 +1,6 @@
 #ifndef SILPH_CONTROL_H
 #define SILPH_CONTROL_H
+
 #include "scheduler.h"
 
 #define SILPH_CONTROL_ABI 1u
@@ -30,19 +31,40 @@ typedef struct {
     SilphScheduleIdentity identity;
     uint64_t key_hi, key_lo;
     uint32_t controller_uid, reserved;
-    int (*message)(void *,const void *,size_t);
-    int (*snapshot)(void *,void *,size_t,size_t *);
+
+    int (*message)(void *, const void *, size_t);
+
+    int (*snapshot)(void *, void *, size_t, size_t *);
+
     void *extension;
 } SilphControlConfig;
 
-enum { SILPH_CONTROL_PULSE = 1, SILPH_CONTROL_STOP = 2, SILPH_CONTROL_STATUS = 3, SILPH_CONTROL_ENGINE = 4 };
-enum { SILPH_CONTROL_OK = 0, SILPH_CONTROL_ARGUMENT = 20, SILPH_CONTROL_IO = 21, SILPH_CONTROL_CLOSED = 22, SILPH_CONTROL_THREAD = 23 };
+enum {
+    SILPH_CONTROL_PULSE = 1,
+    SILPH_CONTROL_STOP = 2,
+    SILPH_CONTROL_STATUS = 3,
+    SILPH_CONTROL_ENGINE = 4
+};
+enum {
+    SILPH_CONTROL_OK = 0,
+    SILPH_CONTROL_ARGUMENT = 20,
+    SILPH_CONTROL_IO = 21,
+    SILPH_CONTROL_CLOSED = 22,
+    SILPH_CONTROL_THREAD = 23
+};
 
 size_t silph_control_size(void);
+
 int silph_control_open(void *, size_t, const SilphControlConfig *);
+
 int silph_control_poll(void *, unsigned);
+
 int silph_control_metrics(void *, SilphControlMetrics *);
+
 int silph_control_close(void *);
+
 int silph_control_name(char *, size_t, uint32_t, uint64_t, uint64_t);
+
 int silph_control_address(void *, const char *, unsigned *);
+
 #endif

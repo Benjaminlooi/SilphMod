@@ -44,14 +44,23 @@ typedef struct {
 } SilphTrace;
 
 uint64_t silph_start_ticks(pid_t);
+
 int silph_process_check(pid_t, uint64_t, char *);
+
 int silph_process_name(pid_t, char *, size_t);
+
 int silph_remote_symbol(pid_t, const char *, const char *, uint64_t *);
+
 int silph_remote_read(pid_t, uint64_t, void *, size_t);
+
 int silph_remote_write(pid_t, uint64_t, const void *, size_t);
+
 int silph_trace_open(SilphTrace *, pid_t, uint64_t);
+
 int silph_trace_open_mode(SilphTrace *, pid_t, uint64_t, int);
+
 int silph_trace_call(SilphTrace *, uint64_t, const uint64_t *, size_t, uint64_t *, int);
+
 int silph_trace_close(SilphTrace *);
 
 #endif

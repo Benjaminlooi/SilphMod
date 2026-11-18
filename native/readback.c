@@ -1,4 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
+
 #include "readback.h"
 #include <string.h>
 #include <time.h>
@@ -22,10 +23,11 @@ typedef struct {
 static uint64_t monotonic_ns(void) {
     struct timespec sample;
     if (clock_gettime(CLOCK_MONOTONIC, &sample) != 0) return 0;
-    return (uint64_t)sample.tv_sec * UINT64_C(1000000000) + (uint64_t)sample.tv_nsec;
+    return (uint64_t) sample.tv_sec * UINT64_C(1000000000) + (uint64_t) sample.tv_nsec;
 }
 
 uint32_t silph_readback_abi(void) { return SILPH_READBACK_ABI; }
+
 size_t silph_readback_size(void) { return sizeof(Readback); }
 
 int silph_readback_open(void *memory, size_t bytes, SilphItemCount getter,
@@ -45,7 +47,8 @@ int silph_readback_open(void *memory, size_t bytes, SilphItemCount getter,
 
 int silph_readback_counts(void *memory, void *bag, const int32_t *ids,
                           uint32_t count, int32_t *output, uint32_t capacity) {
-    if (!memory || !bag || !ids || !output || count == 0 || count > SILPH_READBACK_MAX_ITEMS || capacity < count)
+    if (!memory || !bag || !ids || !output || count == 0 || count > SILPH_READBACK_MAX_ITEMS ||
+        capacity < count)
         return SILPH_READBACK_ARGUMENT;
     Readback *state = memory;
     if (state->magic != SILPH_READBACK_MAGIC) return SILPH_READBACK_STATE;
@@ -63,7 +66,10 @@ int silph_readback_counts(void *memory, void *bag, const int32_t *ids,
     for (uint32_t index = 0; index < count; index++) {
         int32_t value = state->getter(bag, ids[index], state->method);
         state->reads++;
-        if (value < 0 || value > 100000) { status = SILPH_READBACK_COUNT; break; }
+        if (value < 0 || value > 100000) {
+            status = SILPH_READBACK_COUNT;
+            break;
+        }
         snapshot[index] = value;
     }
     const uint64_t ended = monotonic_ns();

@@ -3,11 +3,15 @@
 #ifdef SILPH_PILOT_SERVICE
 #define silph_native_bootstrap silph_native_baseline_bootstrap
 #endif
+
 #include "map-observer.c"
+
 #ifdef SILPH_PILOT_SERVICE
 #undef silph_native_bootstrap
 #endif
+
 #include "scheduler.h"
+
 #if defined(SILPH_PILOT_COMBINED) && defined(SILPH_PILOT_SERVICE) && defined(SILPH_PILOT_CONFIGURED) && !defined(SILPH_PILOT_ROCKET)
 #define SILPH_FARMER_REFILL 1
 #include "work-refill.h"
@@ -16,6 +20,7 @@ static atomic_uint farmer_refill_ready;
 #include "event-actions.h"
 #include <android/log.h>
 #endif
+
 #include "pilot-status.h"
 #include <shadowhook.h>
 #include <pthread.h>
@@ -26,6 +31,7 @@ static atomic_uint farmer_refill_ready;
 #include <time.h>
 #include <android/log.h>
 #include "startup-thread.h"
+
 #if defined(SILPH_PILOT_FRAME) && defined(SILPH_PILOT_SERVICE)
 #include "farmer-view.h"
 static void *farmer_view;
@@ -117,14 +123,17 @@ static unsigned read_started,game_started;
 static Image game_image;
 #endif
 
-static _Atomic uint64_t progress[SILPH_PILOT_WORDS];
-static atomic_uint enabled,owner;
+static _Atomic uint64_t
+progress[SILPH_PILOT_WORDS];
+static atomic_uint enabled, owner;
 static SilphManagedApi managed_api;
 static MapContract map;
-static void *schedule,*managed_state,*hook_stub,*self_pin,*backend_pin;
+static void *schedule, *managed_state, *hook_stub, *self_pin, *backend_pin;
 static SilphScheduleLease lease;
 static SilphScheduleConfig config;
+
 static uint64_t now_ns(void);
+
 #ifdef SILPH_PILOT_SERVICE
 #include "visual-tools.h"
 #include "location-tools.h"
@@ -323,7 +332,9 @@ static void prepare_view(void *map_owner){
 static SilphManagedRef text;
 static SilphManagedMethod getter;
 #endif
-static bool (*original)(void *,const void *);
+
+static bool (*original)(void *, const void *);
+
 static unsigned char original_bytes[16];
 #ifdef SILPH_PILOT_FRAME
 #include "callback-lane.h"
@@ -342,24 +353,41 @@ static bool retire_map_callback(void){
 #endif
 
 static uint64_t now_ns(void) {
-    struct timespec value;if(clock_gettime(CLOCK_MONOTONIC,&value))return 0;
-    return(uint64_t)value.tv_sec*UINT64_C(1000000000)+(uint64_t)value.tv_nsec;
+    struct timespec value;
+    if (clock_gettime(CLOCK_MONOTONIC, &value))return 0;
+    return (uint64_t)
+    value.tv_sec * UINT64_C(1000000000) + (uint64_t)
+    value.tv_nsec;
 }
+
 static uint64_t own_ticks(void) {
-    FILE *file=fopen("/proc/self/stat","re");if(!file)return 0;
-    char line[4096];char *read=fgets(line,sizeof(line),file);fclose(file);if(!read)return 0;
-    char *at=strrchr(line,')');if(!at)return 0;at+=2;
-    for(unsigned field=3;field<22;field++){at=strchr(at,' ');if(!at)return 0;at++;}
-    return strtoull(at,NULL,10);
+    FILE *file = fopen("/proc/self/stat", "re");
+    if (!file)return 0;
+    char line[4096];
+    char *read = fgets(line, sizeof(line), file);
+    fclose(file);
+    if (!read)return 0;
+    char *at = strrchr(line, ')');
+    if (!at)return 0;
+    at += 2;
+    for (unsigned field = 3; field < 22; field++) {
+        at = strchr(at, ' ');
+        if (!at)return 0;
+        at++;
+    }
+    return strtoull(at, NULL, 10);
 }
-static int execute(void *unused,const SilphScheduleJob *job,const SilphSchedulePermit *permit) {
-    (void)unused;
+
+static int execute(void *unused, const SilphScheduleJob *job, const SilphSchedulePermit *permit) {
+    (void) unused;
 #if defined(SILPH_PILOT_ACTIONS) && !defined(SILPH_PILOT_READONLY_ONLY)
     if(job->kind!=SILPH_JOB_WRITE||!silph_schedule_permitted(permit,true))return 1;
 #else
-    if(job->kind!=SILPH_JOB_OBSERVE||!silph_schedule_permitted(permit,false)||silph_schedule_permitted(permit,true))return 1;
+    if (job->kind != SILPH_JOB_OBSERVE || !silph_schedule_permitted(permit, false) ||
+        silph_schedule_permitted(permit, true))
+        return 1;
 #endif
-    int status=0;
+    int status = 0;
 #ifdef SILPH_PILOT_CONFIGURED
     if(!session_configured){
         status=silph_session_link_config(session_link,&session_config);
@@ -376,13 +404,20 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
 #ifdef SILPH_PILOT_SERVICE
     location_progress();
 #endif
-    if(!managed_state) {
-        if(!managed_api.thread_current())return 2;
-        size_t bytes=silph_managed_size(64);managed_state=calloc(1,bytes);if(!managed_state)return 3;
-        status=silph_managed_open(managed_state,bytes,&managed_api,64,64);
-        if(status){free(managed_state);managed_state=NULL;return status;}
-        SilphManagedMetrics m;status=silph_managed_metrics(managed_state,&m);
-        if(status||m.owns_attachment)return 4;
+    if (!managed_state) {
+        if (!managed_api.thread_current())return 2;
+        size_t bytes = silph_managed_size(64);
+        managed_state = calloc(1, bytes);
+        if (!managed_state)return 3;
+        status = silph_managed_open(managed_state, bytes, &managed_api, 64, 64);
+        if (status) {
+            free(managed_state);
+            managed_state = NULL;
+            return status;
+        }
+        SilphManagedMetrics m;
+        status = silph_managed_metrics(managed_state, &m);
+        if (status || m.owns_attachment)return 4;
 #ifdef SILPH_PILOT_GAME_READ
         read_state=calloc(1,silph_read_size());game_state=calloc(1,silph_game_read_size());
         if(!read_state||!game_state)status=3;
@@ -444,8 +479,8 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
 #endif
 #endif
 #else
-        status=silph_managed_ascii(managed_state,"SilphMod native",15,&text);
-        if(!status)status=silph_managed_getter_i32(managed_state,text,"get_Length",&getter);
+        status = silph_managed_ascii(managed_state, "SilphMod native", 15, &text);
+        if (!status)status = silph_managed_getter_i32(managed_state, text, "get_Length", &getter);
 #endif
     }
 #ifdef SILPH_PILOT_GAME_READ
@@ -819,21 +854,29 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
 #endif
 #endif
 #else
-    int32_t length=0;
-    if(!status)status=silph_managed_invoke_i32(managed_state,getter,text,&length);
-    if(status||length!=15){atomic_store(&progress[PILOT_ERROR],100+status);return 1;}
+    int32_t length = 0;
+    if (!status)status = silph_managed_invoke_i32(managed_state, getter, text, &length);
+    if (status || length != 15) {
+        atomic_store(&progress[PILOT_ERROR], 100 + status);
+        return 1;
+    }
 #endif
-    atomic_fetch_add(&progress[PILOT_JOBS],1);return 0;
+    atomic_fetch_add(&progress[PILOT_JOBS], 1);
+    return 0;
 }
+
 static int cleanup(void *unused) {
 #ifdef SILPH_FARMER_REFILL
 
 #endif
-    (void)unused;atomic_store_explicit(&enabled,0,memory_order_release);atomic_fetch_add(&progress[PILOT_CLEANUP],1);
+    (void) unused;
+    atomic_store_explicit(&enabled, 0, memory_order_release);
+    atomic_fetch_add(&progress[PILOT_CLEANUP], 1);
 #if defined(SILPH_PILOT_FRAME) && defined(SILPH_PILOT_SERVICE)
     atomic_store(&farmer_continuation,0);
 #endif
-    int status=0;SilphManagedMetrics metrics={0};
+    int status = 0;
+    SilphManagedMetrics metrics = {0};
 #if defined(SILPH_PILOT_FRAME) && defined(SILPH_PILOT_SERVICE)
     if(farmer_view){status=silph_farmer_view_close(farmer_view,&farmer_view_metrics);farmer_view_progress();if(!status){free(farmer_view);farmer_view=NULL;}}
 #endif
@@ -884,11 +927,16 @@ static int cleanup(void *unused) {
 #ifdef SILPH_PILOT_SERVICE
     if(visual_state){int closed=silph_visual_close(visual_state,&visual_metrics);if(!status)status=closed;if(!closed){free(visual_state);visual_state=NULL;}}
 #endif
-    if(managed_state) {
-        int closed=silph_managed_close(managed_state,&metrics);if(!status)status=closed;
-        atomic_store(&progress[PILOT_CREATED],metrics.refs_created);atomic_store(&progress[PILOT_RELEASED],metrics.refs_released);
-        atomic_store(&progress[PILOT_REMAINING],metrics.live_refs);
-        if(!status){free(managed_state);managed_state=NULL;}
+    if (managed_state) {
+        int closed = silph_managed_close(managed_state, &metrics);
+        if (!status)status = closed;
+        atomic_store(&progress[PILOT_CREATED], metrics.refs_created);
+        atomic_store(&progress[PILOT_RELEASED], metrics.refs_released);
+        atomic_store(&progress[PILOT_REMAINING], metrics.live_refs);
+        if (!status) {
+            free(managed_state);
+            managed_state = NULL;
+        }
     }
 #ifdef SILPH_PILOT_SERVICE
     atomic_fetch_add(&progress[PILOT_CREATED],visual_metrics.created);atomic_fetch_add(&progress[PILOT_RELEASED],visual_metrics.released);atomic_fetch_add(&progress[PILOT_REMAINING],visual_metrics.remaining);
@@ -903,7 +951,7 @@ static int cleanup(void *unused) {
 #ifdef SILPH_PILOT_ENHANCER
     atomic_fetch_add(&progress[PILOT_CREATED],enhancer_refs.refs_created);atomic_fetch_add(&progress[PILOT_RELEASED],enhancer_refs.refs_released);atomic_fetch_add(&progress[PILOT_REMAINING],enhancer_refs.live_refs);
 #endif
-    if(status)atomic_store(&progress[PILOT_ERROR],200+status);
+    if (status)atomic_store(&progress[PILOT_ERROR], 200 + status);
 #ifdef SILPH_PILOT_CONFIGURED
     if(session_configured){
         session_snapshot.pid=config.identity.pid;session_snapshot.ticks=config.identity.process_ticks;session_snapshot.session_hi=config.identity.session_hi;
@@ -919,8 +967,10 @@ static int cleanup(void *unused) {
         if(published&&!status)status=published;
     }
 #endif
-    atomic_store(&progress[PILOT_STOPPED],!status);return status;
+    atomic_store(&progress[PILOT_STOPPED], !status);
+    return status;
 }
+
 #if defined(SILPH_PILOT_FRAME) && defined(SILPH_PILOT_SERVICE)
 #ifdef SILPH_FARMER_REFILL
 static int refill_farmer(void){
@@ -971,25 +1021,39 @@ static void farmer_pump(void *object,bool allowed,uint32_t kind) {
     }
 }
 #endif
-static bool proxy(void *object,const void *method) {
+
+static bool proxy(void *object, const void *method) {
 #ifdef SILPH_PILOT_FRAME
     SilphCallbackScope entered __attribute__((cleanup(silph_callback_leave)))=silph_callback_enter(&map_callback_depth);
 #endif
-    bool result=original(object,method);
-    if(!atomic_load_explicit(&enabled,memory_order_acquire))return result;
-    atomic_fetch_add(&progress[PILOT_CALLBACKS],1);
-    uint32_t current=(uint32_t)syscall(__NR_gettid),bound=atomic_load_explicit(&owner,memory_order_acquire);
-    if(!bound) {
-        char name[16]={0};
-        if(prctl(PR_GET_NAME,name)||strcmp(name,"UnityMain")||!object||managed_api.object_get_class(object)!=map.klass
-            ||!managed_api.thread_current())return result;
-        unsigned expected=0;if(!atomic_compare_exchange_strong(&owner,&expected,current))return result;
-        config.owner_tid=current;
-        int opened=silph_schedule_open(schedule,&config,&lease);
-        if(opened){atomic_store(&progress[PILOT_ERROR],300+opened);atomic_store(&enabled,0);return result;}
-        atomic_store(&progress[PILOT_OWNER],current);atomic_store_explicit(&progress[PILOT_STATE],PILOT_READY,memory_order_release);bound=current;
+    bool result = original(object, method);
+    if (!atomic_load_explicit(&enabled, memory_order_acquire))return result;
+    atomic_fetch_add(&progress[PILOT_CALLBACKS], 1);
+    uint32_t current = (uint32_t) syscall(__NR_gettid), bound = atomic_load_explicit(&owner,
+                                                                                     memory_order_acquire);
+    if (!bound) {
+        char name[16] = {0};
+        if (prctl(PR_GET_NAME, name) || strcmp(name, "UnityMain") || !object ||
+            managed_api.object_get_class(object) != map.klass
+            || !managed_api.thread_current())
+            return result;
+        unsigned expected = 0;
+        if (!atomic_compare_exchange_strong(&owner, &expected, current))return result;
+        config.owner_tid = current;
+        int opened = silph_schedule_open(schedule, &config, &lease);
+        if (opened) {
+            atomic_store(&progress[PILOT_ERROR], 300 + opened);
+            atomic_store(&enabled, 0);
+            return result;
+        }
+        atomic_store(&progress[PILOT_OWNER], current);
+        atomic_store_explicit(&progress[PILOT_STATE], PILOT_READY, memory_order_release);
+        bound = current;
     }
-    if(current!=bound){atomic_fetch_add(&progress[PILOT_FOREIGN],1);return result;}
+    if (current != bound) {
+        atomic_fetch_add(&progress[PILOT_FOREIGN], 1);
+        return result;
+    }
 #if defined(SILPH_PILOT_FRAME) && defined(SILPH_PILOT_SERVICE)
     if(atomic_load(&map_callback_depth)==1&&object&&managed_api.object_get_class(object)==map.klass)prepare_view(object);
     return result;
@@ -1003,7 +1067,7 @@ static bool proxy(void *object,const void *method) {
     if(presentation_state)silph_presentation_map(presentation_state,object,now_ns());
     if(presentation_state&&silph_presentation_busy(presentation_state))return result;
 #endif
-    atomic_store(&progress[PILOT_MAP_VISIBLE],result);
+    atomic_store(&progress[PILOT_MAP_VISIBLE], result);
 #if defined(SILPH_PILOT_FRAME) && defined(SILPH_PILOT_SERVICE)
     if(silph_farmer_view_ready(farmer_view))return result;
 #endif
@@ -1013,7 +1077,7 @@ static bool proxy(void *object,const void *method) {
 #ifdef SILPH_PILOT_GAME_READ
     void *previous_map=active_map;active_map=object;
 #endif
-    int tick=silph_schedule_tick(schedule,lease,&config.identity,result);
+    int tick = silph_schedule_tick(schedule, lease, &config.identity, result);
 #ifdef SILPH_PILOT_SERVICE
     if(visual_state)silph_visual_prime(visual_state,object);
     if(presentation_state&&game_started)silph_presentation_prime(presentation_state,game_state,managed_state);
@@ -1023,25 +1087,34 @@ static bool proxy(void *object,const void *method) {
 #ifdef SILPH_PILOT_GAME_READ
     active_map=previous_map;
 #endif
-    if(tick==SILPH_SCHEDULE_BUSY)atomic_fetch_add(&progress[PILOT_BUSY],1);
-    else if(tick&&tick!=SILPH_SCHEDULE_STATE){atomic_store(&progress[PILOT_ERROR],400+tick);atomic_store(&enabled,0);}
+    if (tick == SILPH_SCHEDULE_BUSY)atomic_fetch_add(&progress[PILOT_BUSY], 1);
+    else if (tick && tick != SILPH_SCHEDULE_STATE) {
+        atomic_store(&progress[PILOT_ERROR], 400 + tick);
+        atomic_store(&enabled, 0);
+    }
     SilphScheduleMetrics metrics;
-    if(!silph_schedule_metrics(schedule,lease,&metrics)) {
-        atomic_store(&progress[PILOT_SCHED_STATE],metrics.state);atomic_store(&progress[PILOT_QUEUE],metrics.queued);
-        atomic_store(&progress[PILOT_REASON],metrics.reason);
+    if (!silph_schedule_metrics(schedule, lease, &metrics)) {
+        atomic_store(&progress[PILOT_SCHED_STATE], metrics.state);
+        atomic_store(&progress[PILOT_QUEUE], metrics.queued);
+        atomic_store(&progress[PILOT_REASON], metrics.reason);
     }
     return result;
 #endif
 }
+
 static void *controller(void *unused) {
-    (void)unused;
-    uint64_t deadline=now_ns()+UINT64_C(60000000000),sequence=1;
+    (void) unused;
+    uint64_t deadline = now_ns() + UINT64_C(60000000000), sequence = 1;
 #ifndef SILPH_PILOT_EXTERNAL
-    uint64_t last_pulse=0;
+    uint64_t last_pulse = 0;
 #endif
-    while(now_ns()<deadline&&atomic_load_explicit(&progress[PILOT_STATE],memory_order_acquire)!=PILOT_READY
-        &&!atomic_load(&progress[PILOT_ERROR])){struct timespec pause={0,10000000};nanosleep(&pause,NULL);}
-    bool ready=atomic_load_explicit(&progress[PILOT_STATE],memory_order_acquire)==PILOT_READY;
+    while (now_ns() < deadline &&
+           atomic_load_explicit(&progress[PILOT_STATE], memory_order_acquire) != PILOT_READY
+           && !atomic_load(&progress[PILOT_ERROR])) {
+        struct timespec pause = {0, 10000000};
+        nanosleep(&pause, NULL);
+    }
+    bool ready = atomic_load_explicit(&progress[PILOT_STATE], memory_order_acquire) == PILOT_READY;
 #ifdef SILPH_PILOT_EXTERNAL
     uint64_t last_submit=0;
 #ifdef SILPH_PILOT_CONFIGURED
@@ -1132,97 +1205,131 @@ static void *controller(void *unused) {
 #endif
     }
 #else
-    while(ready&&now_ns()<deadline&&sequence<=SILPH_PILOT_GOAL&&!atomic_load(&progress[PILOT_ERROR])) {
-        int pulse=SILPH_SCHEDULE_OK;
-        if(now_ns()-last_pulse>=UINT64_C(200000000)) {
-        pulse=silph_schedule_pulse(schedule,lease,&config.identity,true);
-        if(pulse==SILPH_SCHEDULE_OK)atomic_fetch_add(&progress[PILOT_PULSES],1);
-        if(pulse==SILPH_SCHEDULE_OK)last_pulse=now_ns();
+    while (ready && now_ns() < deadline && sequence <= SILPH_PILOT_GOAL &&
+           !atomic_load(&progress[PILOT_ERROR])) {
+        int pulse = SILPH_SCHEDULE_OK;
+        if (now_ns() - last_pulse >= UINT64_C(200000000)) {
+            pulse = silph_schedule_pulse(schedule, lease, &config.identity, true);
+            if (pulse == SILPH_SCHEDULE_OK)atomic_fetch_add(&progress[PILOT_PULSES], 1);
+            if (pulse == SILPH_SCHEDULE_OK)last_pulse = now_ns();
         }
-        if(pulse!=SILPH_SCHEDULE_OK&&pulse!=SILPH_SCHEDULE_BUSY)break;
-        if(atomic_load(&progress[PILOT_JOBS])<sequence-1){struct timespec pause={0,50000000};nanosleep(&pause,NULL);continue;}
-        SilphScheduleJob job={.sequence=sequence,.deadline_ns=now_ns()+UINT64_C(3000000000),.kind=SILPH_JOB_OBSERVE};
-        int submitted=silph_schedule_submit(schedule,lease,&job);
-        if(submitted==SILPH_SCHEDULE_OK)sequence++;
-        else if(submitted!=SILPH_SCHEDULE_BUSY&&submitted!=SILPH_SCHEDULE_CAPACITY_ERROR)break;
-        struct timespec pause={0,100000000};nanosleep(&pause,NULL);
+        if (pulse != SILPH_SCHEDULE_OK && pulse != SILPH_SCHEDULE_BUSY)break;
+        if (atomic_load(&progress[PILOT_JOBS]) < sequence - 1) {
+            struct timespec pause = {0, 50000000};
+            nanosleep(&pause, NULL);
+            continue;
+        }
+        SilphScheduleJob job = {.sequence=sequence, .deadline_ns=now_ns() + UINT64_C(
+                3000000000), .kind=SILPH_JOB_OBSERVE};
+        int submitted = silph_schedule_submit(schedule, lease, &job);
+        if (submitted == SILPH_SCHEDULE_OK)sequence++;
+        else if (submitted != SILPH_SCHEDULE_BUSY &&
+                 submitted != SILPH_SCHEDULE_CAPACITY_ERROR)
+            break;
+        struct timespec pause = {0, 100000000};
+        nanosleep(&pause, NULL);
     }
-    while(ready&&now_ns()<deadline&&atomic_load(&progress[PILOT_JOBS])<SILPH_PILOT_GOAL&&!atomic_load(&progress[PILOT_ERROR])) {
-        if(now_ns()-last_pulse>=UINT64_C(200000000)){silph_schedule_pulse(schedule,lease,&config.identity,true);last_pulse=now_ns();}
-        struct timespec pause={0,50000000};nanosleep(&pause,NULL);
+    while (ready && now_ns() < deadline && atomic_load(&progress[PILOT_JOBS]) < SILPH_PILOT_GOAL &&
+           !atomic_load(&progress[PILOT_ERROR])) {
+        if (now_ns() - last_pulse >= UINT64_C(200000000)) {
+            silph_schedule_pulse(schedule, lease, &config.identity, true);
+            last_pulse = now_ns();
+        }
+        struct timespec pause = {0, 50000000};
+        nanosleep(&pause, NULL);
     }
 #endif
-    uint64_t cleanup_deadline=now_ns()+UINT64_C(5000000000);
-    if(ready) {
-        silph_schedule_stop(schedule,lease);
-        while(now_ns()<cleanup_deadline&&!atomic_load(&progress[PILOT_STOPPED])) {
-            struct timespec pause={0,10000000};nanosleep(&pause,NULL);
+    uint64_t cleanup_deadline = now_ns() + UINT64_C(5000000000);
+    if (ready) {
+        silph_schedule_stop(schedule, lease);
+        while (now_ns() < cleanup_deadline && !atomic_load(&progress[PILOT_STOPPED])) {
+            struct timespec pause = {0, 10000000};
+            nanosleep(&pause, NULL);
         }
     }
 #ifdef SILPH_PILOT_EXTERNAL
     if(control_state)silph_control_close(control_state);
 #endif
-    atomic_store_explicit(&enabled,0,memory_order_release);
+    atomic_store_explicit(&enabled, 0, memory_order_release);
 #ifdef SILPH_PILOT_SERVICE
     if(location_attempted&&(session_config.flags&SILPH_CFG_FIX_LOCATION)){int closed=silph_location_close();if(closed&&!atomic_load(&progress[PILOT_ERROR]))atomic_store(&progress[PILOT_ERROR],1800+closed);}location_progress();
 #endif
-    int unhooked=hook_stub?shadowhook_unhook(hook_stub):0;
-    unsigned char after[sizeof(original_bytes)];memcpy(after,(const void *)map.address,sizeof(after));
-    if(!unhooked&&!memcmp(after,original_bytes,sizeof(after)))atomic_store(&progress[PILOT_UNHOOKED],1);
-    else if(!atomic_load(&progress[PILOT_ERROR]))atomic_store(&progress[PILOT_ERROR],500+unhooked);
-    SilphScheduleMetrics metrics={0};
-    int snapshot=SILPH_SCHEDULE_STATE;
-    if(ready)do {
-        snapshot=silph_schedule_metrics(schedule,lease,&metrics);
-        if(snapshot==SILPH_SCHEDULE_BUSY){struct timespec pause={0,1000000};nanosleep(&pause,NULL);}
-    }while(snapshot==SILPH_SCHEDULE_BUSY&&now_ns()<cleanup_deadline);
-    if(!snapshot)atomic_store(&progress[PILOT_MAX_JOB_NS],metrics.max_callback_ns);
+    int unhooked = hook_stub ? shadowhook_unhook(hook_stub) : 0;
+    unsigned char after[sizeof(original_bytes)];
+    memcpy(after, (const void *) map.address, sizeof(after));
+    if (!unhooked && !memcmp(after, original_bytes, sizeof(after)))
+        atomic_store(&progress[PILOT_UNHOOKED], 1);
+    else if (!atomic_load(&progress[PILOT_ERROR]))
+        atomic_store(&progress[PILOT_ERROR], 500 + unhooked);
+    SilphScheduleMetrics metrics = {0};
+    int snapshot = SILPH_SCHEDULE_STATE;
+    if (ready)
+        do {
+            snapshot = silph_schedule_metrics(schedule, lease, &metrics);
+            if (snapshot == SILPH_SCHEDULE_BUSY) {
+                struct timespec pause = {0, 1000000};
+                nanosleep(&pause, NULL);
+            }
+        } while (snapshot == SILPH_SCHEDULE_BUSY && now_ns() < cleanup_deadline);
+    if (!snapshot)atomic_store(&progress[PILOT_MAX_JOB_NS], metrics.max_callback_ns);
     bool execution_ok;
 #ifdef SILPH_PILOT_EXTERNAL
     execution_ok=metrics.executed>0&&metrics.executed==atomic_load(&progress[PILOT_JOBS]);
 #else
-    execution_ok=metrics.executed==SILPH_PILOT_GOAL&&!metrics.expired&&!metrics.canceled&&atomic_load(&progress[PILOT_JOBS])==SILPH_PILOT_GOAL;
+    execution_ok = metrics.executed == SILPH_PILOT_GOAL && !metrics.expired && !metrics.canceled &&
+                   atomic_load(&progress[PILOT_JOBS]) == SILPH_PILOT_GOAL;
 #endif
-    bool passed=ready&&!snapshot&&metrics.state==SILPH_SCHEDULE_CLOSED&&execution_ok
-        &&atomic_load(&progress[PILOT_CLEANUP])==1&&atomic_load(&progress[PILOT_STOPPED])
-        &&atomic_load(&progress[PILOT_CREATED])==atomic_load(&progress[PILOT_RELEASED])&&!atomic_load(&progress[PILOT_REMAINING])
-        &&atomic_load(&progress[PILOT_UNHOOKED])&&!atomic_load(&progress[PILOT_ERROR]);
-    if(!passed&&!atomic_load(&progress[PILOT_ERROR]))atomic_store(&progress[PILOT_ERROR],600);
+    bool passed = ready && !snapshot && metrics.state == SILPH_SCHEDULE_CLOSED && execution_ok
+                  && atomic_load(&progress[PILOT_CLEANUP]) == 1 &&
+                  atomic_load(&progress[PILOT_STOPPED])
+                  &&
+                  atomic_load(&progress[PILOT_CREATED]) == atomic_load(&progress[PILOT_RELEASED]) &&
+                  !atomic_load(&progress[PILOT_REMAINING])
+                  && atomic_load(&progress[PILOT_UNHOOKED]) && !atomic_load(&progress[PILOT_ERROR]);
+    if (!passed && !atomic_load(&progress[PILOT_ERROR]))atomic_store(&progress[PILOT_ERROR], 600);
 #ifdef SILPH_PILOT_CONFIGURED
     if(session_link){int closed=silph_session_link_close(session_link);if(closed&&!atomic_load(&progress[PILOT_ERROR]))atomic_store(&progress[PILOT_ERROR],1300+closed);}
 #endif
-    atomic_store_explicit(&progress[PILOT_STATE],passed?PILOT_COMPLETE:PILOT_FAILED,memory_order_release);return NULL;
+    atomic_store_explicit(&progress[PILOT_STATE], passed ? PILOT_COMPLETE : PILOT_FAILED,
+                          memory_order_release);
+    return NULL;
 }
+
 __attribute__((visibility("default")))
-int silph_native_managed_probe(SilphNativeReport *report,uint32_t capacity) {
-    int status=silph_native_map_contract_probe(report,capacity);if(status)return status;
+int silph_native_managed_probe(SilphNativeReport *report, uint32_t capacity) {
+    int status = silph_native_map_contract_probe(report, capacity);
+    if (status)return status;
 #define REJECT(code) do{snprintf(report->detail,sizeof(report->detail),"Unity pilot startup rejected: code=%d errno=%d hookErrno=%d",code,errno,shadowhook_get_errno());return code;}while(0)
-    if(atomic_load(&progress[PILOT_MAGIC]))REJECT(10);
-    Loaded loaded={.report=report};dl_iterate_phdr(modules,&loaded);
+    if (atomic_load(&progress[PILOT_MAGIC]))REJECT(10);
+    Loaded loaded = {.report=report};
+    dl_iterate_phdr(modules, &loaded);
 #ifdef SILPH_PILOT_GAME_READ
     game_image=loaded.il2cpp;
 #endif
-    status=map_contract(&loaded.il2cpp,&map);
-    report->managed_created+=map.metrics.refs_created;report->managed_released+=map.metrics.refs_released;
-    report->managed_remaining+=map.metrics.live_refs;
-    if(!map.metrics.closed)report->managed_closed=0;
-    if(status)REJECT(20+status);
-    if(silph_managed_api_load(&managed_api,resolve_managed,&loaded.il2cpp))REJECT(11);
-    uint64_t nonce=0,ticks=own_ticks();
-    if(!ticks||getrandom(&nonce,sizeof(nonce),0)!=sizeof(nonce)||!nonce)REJECT(12);
+    status = map_contract(&loaded.il2cpp, &map);
+    report->managed_created += map.metrics.refs_created;
+    report->managed_released += map.metrics.refs_released;
+    report->managed_remaining += map.metrics.live_refs;
+    if (!map.metrics.closed)report->managed_closed = 0;
+    if (status)REJECT(20 + status);
+    if (silph_managed_api_load(&managed_api, resolve_managed, &loaded.il2cpp))REJECT(11);
+    uint64_t nonce = 0, ticks = own_ticks();
+    if (!ticks || getrandom(&nonce, sizeof(nonce), 0) != sizeof(nonce) || !nonce)REJECT(12);
 #ifdef SILPH_PILOT_EXTERNAL
     if(getrandom(&control_key_lo,sizeof(control_key_lo),0)!=sizeof(control_key_lo)||!control_key_lo)REJECT(12);
 #endif
-    schedule=calloc(1,silph_schedule_size());if(!schedule||silph_schedule_init(schedule,silph_schedule_size()))REJECT(13);
-    config=(SilphScheduleConfig){.identity={.pid=(uint32_t)getpid(),.process_ticks=ticks,.session_hi=nonce,.session_lo=1,
-        .account_hi=UINT64_C(0x444941474e4f5354),.account_lo=1},.heartbeat_timeout_ns=2200000000,.tick_budget_ns=1000000,
-        .max_jobs_per_tick=1,
+    schedule = calloc(1, silph_schedule_size());
+    if (!schedule || silph_schedule_init(schedule, silph_schedule_size()))REJECT(13);
+    config = (SilphScheduleConfig) {.identity={.pid=(uint32_t) getpid(), .process_ticks=ticks, .session_hi=nonce, .session_lo=1,
+            .account_hi=UINT64_C(
+                    0x444941474e4f5354), .account_lo=1}, .heartbeat_timeout_ns=2200000000, .tick_budget_ns=1000000,
+            .max_jobs_per_tick=1,
 #if defined(SILPH_PILOT_ACTIONS) && !defined(SILPH_PILOT_READONLY_ONLY)
-        .readonly=0,
+            .readonly=0,
 #else
-        .readonly=1,
+            .readonly=1,
 #endif
-        .execute=execute,.cleanup=cleanup};
+            .execute=execute, .cleanup=cleanup};
 #ifdef SILPH_PILOT_CONFIGURED
     session_link=calloc(1,silph_session_link_size());
     unsigned mode=
@@ -1237,25 +1344,49 @@ int silph_native_managed_probe(SilphNativeReport *report,uint32_t capacity) {
 #endif
     if(!session_link||silph_session_link_open(session_link,silph_session_link_size(),&config.identity,mode))REJECT(20);
 #endif
-    Dl_info info;if(!dladdr((void *)silph_native_managed_probe,&info)||!info.dli_fname)REJECT(14);
-    self_pin=dlopen(info.dli_fname,RTLD_NOW|RTLD_NODELETE);
-    char backend[4096];const char *slash=strrchr(info.dli_fname,'/');
-    if(!self_pin||!slash||snprintf(backend,sizeof(backend),"%.*s/libshadowhook.so",(int)(slash-info.dli_fname),info.dli_fname)>=(int)sizeof(backend))REJECT(15);
-    backend_pin=dlopen(backend,RTLD_NOW|RTLD_NODELETE);if(!backend_pin)REJECT(16);
-    if(shadowhook_init(SHADOWHOOK_MODE_UNIQUE,true))REJECT(17);
-    memcpy(original_bytes,(const void *)map.address,sizeof(original_bytes));
-    atomic_store(&progress[PILOT_MAGIC],SILPH_PILOT_MAGIC);atomic_store(&progress[PILOT_ABI],SILPH_PILOT_ABI);
-    atomic_store(&progress[PILOT_PID],getpid());atomic_store(&progress[PILOT_TICKS],ticks);atomic_store(&progress[PILOT_NONCE],nonce);
-    atomic_store(&progress[PILOT_READONLY],config.readonly);atomic_store(&progress[PILOT_RESIDENT],1);atomic_store(&progress[PILOT_STATE],PILOT_INSTALLING);
+    Dl_info info;
+    if (!dladdr((void *) silph_native_managed_probe, &info) || !info.dli_fname)REJECT(14);
+    self_pin = dlopen(info.dli_fname, RTLD_NOW | RTLD_NODELETE);
+    char backend[4096];
+    const char *slash = strrchr(info.dli_fname, '/');
+    if (!self_pin || !slash ||
+        snprintf(backend, sizeof(backend), "%.*s/libshadowhook.so", (int) (slash - info.dli_fname),
+                 info.dli_fname) >= (int) sizeof(backend))
+        REJECT(15);
+    backend_pin = dlopen(backend, RTLD_NOW | RTLD_NODELETE);
+    if (!backend_pin)REJECT(16);
+    if (shadowhook_init(SHADOWHOOK_MODE_UNIQUE, true))REJECT(17);
+    memcpy(original_bytes, (const void *) map.address, sizeof(original_bytes));
+    atomic_store(&progress[PILOT_MAGIC], SILPH_PILOT_MAGIC);
+    atomic_store(&progress[PILOT_ABI], SILPH_PILOT_ABI);
+    atomic_store(&progress[PILOT_PID], getpid());
+    atomic_store(&progress[PILOT_TICKS], ticks);
+    atomic_store(&progress[PILOT_NONCE], nonce);
+    atomic_store(&progress[PILOT_READONLY], config.readonly);
+    atomic_store(&progress[PILOT_RESIDENT], 1);
+    atomic_store(&progress[PILOT_STATE], PILOT_INSTALLING);
 #ifdef SILPH_PILOT_EXTERNAL
 #endif
-    hook_stub=shadowhook_hook_func_addr((void *)map.address,(void *)proxy,(void **)&original);
-    if(!hook_stub||!original){atomic_store(&progress[PILOT_ERROR],700+shadowhook_get_errno());REJECT(18);}
-    atomic_store_explicit(&enabled,1,memory_order_release);
-    pthread_t thread;int created=pthread_create(&thread,NULL,controller,NULL);
-    if(created){atomic_store(&enabled,0);shadowhook_unhook(hook_stub);REJECT(19);}
+    hook_stub = shadowhook_hook_func_addr((void *) map.address, (void *) proxy,
+                                          (void **) &original);
+    if (!hook_stub || !original) {
+        atomic_store(&progress[PILOT_ERROR], 700 + shadowhook_get_errno());
+        REJECT(18);
+    }
+    atomic_store_explicit(&enabled, 1, memory_order_release);
+    pthread_t thread;
+    int created = pthread_create(&thread, NULL, controller, NULL);
+    if (created) {
+        atomic_store(&enabled, 0);
+        shadowhook_unhook(hook_stub);
+        REJECT(19);
+    }
     pthread_detach(thread);
-    snprintf(report->detail,sizeof(report->detail),"Unity pilot: address=0x%" PRIxPTR " nonce=%" PRIu64 " resident=1 readOnly=%u",(uintptr_t)progress,nonce,config.readonly);
+    snprintf(report->detail, sizeof(report->detail), "Unity pilot: address=0x%"
+    PRIxPTR
+    " nonce=%"
+    PRIu64
+    " resident=1 readOnly=%u", (uintptr_t) progress, nonce, config.readonly);
 #ifdef SILPH_PILOT_EXTERNAL
     size_t used=strlen(report->detail);
     snprintf(report->detail+used,sizeof(report->detail)-used," controlKeyLo=%" PRIu64,control_key_lo);
@@ -1263,7 +1394,8 @@ int silph_native_managed_probe(SilphNativeReport *report,uint32_t capacity) {
     return 0;
 #undef REJECT
 }
+
 __attribute__((visibility("default")))
-int silph_native_managed_probe_threaded(SilphNativeReport *report,uint32_t capacity) {
-    return silph_startup_thread(silph_native_managed_probe,report,capacity);
+int silph_native_managed_probe_threaded(SilphNativeReport *report, uint32_t capacity) {
+    return silph_startup_thread(silph_native_managed_probe, report, capacity);
 }

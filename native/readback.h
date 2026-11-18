@@ -14,6 +14,7 @@
 #endif
 
 typedef int32_t (*SilphItemCount)(void *, int32_t, const void *);
+
 typedef void *(*SilphObjectClass)(void *);
 
 enum SilphReadbackStatus {
@@ -26,10 +27,17 @@ enum SilphReadbackStatus {
 };
 
 SILPH_EXPORT uint32_t silph_readback_abi(void);
+
 SILPH_EXPORT size_t silph_readback_size(void);
-SILPH_EXPORT int silph_readback_open(void *, size_t, SilphItemCount, const void *, void *, SilphObjectClass);
-SILPH_EXPORT int silph_readback_counts(void *, void *, const int32_t *, uint32_t, int32_t *, uint32_t);
+
+SILPH_EXPORT int
+silph_readback_open(void *, size_t, SilphItemCount, const void *, void *, SilphObjectClass);
+
+SILPH_EXPORT int
+silph_readback_counts(void *, void *, const int32_t *, uint32_t, int32_t *, uint32_t);
+
 SILPH_EXPORT int silph_readback_metrics(void *, uint64_t *, uint32_t);
+
 SILPH_EXPORT int silph_readback_close(void *);
 
 #endif
