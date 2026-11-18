@@ -118,6 +118,10 @@ int silph_config_decode(const void *memory,size_t bytes,SilphSessionConfig *out)
 #endif
     if(silph_config_validate(&c))return SILPH_WIRE_ARGUMENT;*out=c;return 0;
 }
+static int pokemon_details_valid(const SilphPokemonDetails *p){
+    return p->species<=INT32_MAX&&p->form<=INT32_MAX&&p->cp<=INT32_MAX&&p->ivs<=4096&&p->shiny<=1
+        &&(p->species||!(p->form||p->cp||p->ivs||p->shiny));
+}
 static int snapshot_valid(const SilphSessionSnapshot *s){
     return s&&s->pid>1&&s->pid<=INT32_MAX&&s->ticks&&s->ticks<=INT64_MAX&&(s->session_hi||s->session_lo)
 #ifdef SILPH_ENABLE_ENHANCER
@@ -127,12 +131,22 @@ static int snapshot_valid(const SilphSessionSnapshot *s){
 #endif
         &&s->state<=7&&s->flags<=15&&s->tap_request<=65535u&&(!s->tap_request||s->mode==SILPH_MODE_FARMER)&&(s->mode!=SILPH_MODE_FARMER||s->reason<=65535u)
         &&(s->mode==SILPH_MODE_FARMER?s->candidate_state<=65535u&&s->farmer_activity<=65535u:!s->farmer_activity)
+        &&pokemon_details_valid(&s->target_pokemon)&&pokemon_details_valid(&s->last_catch)
+        &&(s->mode==SILPH_MODE_FARMER||!(s->target_pokemon.species||s->last_catch.species))
+        &&s->catch_outcome<=SILPH_FARMER_TRANSFERRED&&(!s->catch_outcome==!s->last_catch.species)
         &&s->rewards_available<=3&&s->research_status<=65535&&s->location_status<=65535&&!(s->visual_available&~7552u)&&!(s->visual_failed&~7552u)&&!(s->visual_available&s->visual_failed)
         &&isfinite(s->latitude)&&isfinite(s->longitude)&&fabs(s->latitude)<=90&&fabs(s->longitude)<=180;
 }
+static void put_pokemon_details(uint8_t *p,const SilphPokemonDetails *details){
+    put32(p,details->species);put32(p+4,details->form);put32(p+8,details->cp);
+    put32(p+12,details->ivs);put32(p+16,details->shiny);
+}
+static SilphPokemonDetails get_pokemon_details(const uint8_t *p){
+    return (SilphPokemonDetails){.species=get32(p),.form=get32(p+4),.cp=get32(p+8),.ivs=get32(p+12),.shiny=get32(p+16)};
+}
 int silph_snapshot_encode(const SilphSessionSnapshot *s,void *memory,size_t bytes){
     if(!memory||bytes!=SILPH_SNAPSHOT_BYTES||!snapshot_valid(s))return SILPH_WIRE_ARGUMENT;uint8_t *p=memory;memset(p,0,bytes);
-    put64(p,SILPH_SNAPSHOT_MAGIC);put32(p+8,1);put32(p+12,(uint32_t)bytes);
+    put64(p,SILPH_SNAPSHOT_MAGIC);put32(p+8,SILPH_SNAPSHOT_VERSION);put32(p+12,(uint32_t)bytes);
     const uint32_t a[]={s->mode,s->state,s->error,s->reason,s->flags,s->pid};for(unsigned i=0;i<6;i++)put32(p+16+i*4,a[i]);
     if(s->mode==SILPH_MODE_FARMER)put32(p+28,s->reason|(s->tap_request<<16));
     const uint64_t b[]={s->ticks,s->session_hi,s->session_lo,s->sequence,s->account_hi,s->account_lo,s->caught,s->fled,s->spun,s->discarded,s->transferred,
@@ -140,11 +154,13 @@ int silph_snapshot_encode(const SilphSessionSnapshot *s,void *memory,size_t byte
     for(unsigned i=0;i<20;i++)put64(p+40+i*8,b[i]);uint64_t lat=0,lon=0;memcpy(&lat,&s->latitude,8);memcpy(&lon,&s->longitude,8);
     /* Farmer shares this word between its research state and current activity. */
     put64(p+200,lat);put64(p+208,lon);put32(p+216,s->candidate_state|(s->farmer_activity<<16));put32(p+220,s->rewards_available);
-    put32(p+224,s->visual_available);put32(p+228,s->visual_failed);put64(p+232,s->iv_reads);put64(p+240,s->name_updates);put32(p+248,s->research_status|(s->location_status<<16));put32(p+252,silph_wire_crc(p,252));return 0;
+    put32(p+224,s->visual_available);put32(p+228,s->visual_failed);put64(p+232,s->iv_reads);put64(p+240,s->name_updates);put32(p+248,s->research_status|(s->location_status<<16));
+    put_pokemon_details(p+252,&s->target_pokemon);put_pokemon_details(p+272,&s->last_catch);put32(p+292,s->catch_outcome);
+    put32(p+296,silph_wire_crc(p,296));return 0;
 }
 int silph_snapshot_decode(const void *memory,size_t bytes,SilphSessionSnapshot *out){
     if(!out)return SILPH_WIRE_ARGUMENT;memset(out,0,sizeof(*out));if(!memory||bytes!=SILPH_SNAPSHOT_BYTES)return SILPH_WIRE_FORMAT;const uint8_t *p=memory;
-    if(get64(p)!=SILPH_SNAPSHOT_MAGIC||get32(p+8)!=1||get32(p+12)!=bytes)return SILPH_WIRE_FORMAT;if(get32(p+252)!=silph_wire_crc(p,252))return SILPH_WIRE_CRC;
+    if(get64(p)!=SILPH_SNAPSHOT_MAGIC||get32(p+8)!=SILPH_SNAPSHOT_VERSION||get32(p+12)!=bytes)return SILPH_WIRE_FORMAT;if(get32(p+296)!=silph_wire_crc(p,296))return SILPH_WIRE_CRC;
     SilphSessionSnapshot s={0};
     uint32_t *a[]={&s.mode,&s.state,&s.error,&s.reason,&s.flags,&s.pid};for(unsigned i=0;i<6;i++)*a[i]=get32(p+16+i*4);
     if(s.mode==SILPH_MODE_FARMER){s.tap_request=s.reason>>16;s.reason&=65535u;}
@@ -153,5 +169,6 @@ int silph_snapshot_decode(const void *memory,size_t bytes,SilphSessionSnapshot *
     for(unsigned i=0;i<20;i++)*b[i]=get64(p+40+i*8);uint64_t lat=get64(p+200),lon=get64(p+208);memcpy(&s.latitude,&lat,8);memcpy(&s.longitude,&lon,8);
     s.candidate_state=get32(p+216);s.rewards_available=get32(p+220);s.visual_available=get32(p+224);s.visual_failed=get32(p+228);s.iv_reads=get64(p+232);s.name_updates=get64(p+240);s.research_status=get32(p+248)&65535u;s.location_status=get32(p+248)>>16;
     if(s.mode==SILPH_MODE_FARMER){s.farmer_activity=s.candidate_state>>16;s.candidate_state&=65535u;}
+    s.target_pokemon=get_pokemon_details(p+252);s.last_catch=get_pokemon_details(p+272);s.catch_outcome=get32(p+292);
     if(!snapshot_valid(&s))return SILPH_WIRE_ARGUMENT;*out=s;return 0;
 }

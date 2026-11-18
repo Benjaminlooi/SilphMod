@@ -2,8 +2,10 @@
 #define SILPH_SESSION_WIRE_H
 #include <stddef.h>
 #include <stdint.h>
+#include "pokemon-details.h"
 #define SILPH_CONFIG_BYTES 1024u
-#define SILPH_SNAPSHOT_BYTES 256u
+#define SILPH_SNAPSHOT_BYTES 300u
+#define SILPH_SNAPSHOT_VERSION 2u
 #define SILPH_CONFIG_MAGIC UINT64_C(0x3147464348504c53)
 #define SILPH_SNAPSHOT_MAGIC UINT64_C(0x3154415348504c53)
 enum {SILPH_MODE_FARMER=1,SILPH_MODE_KECLEON=2,SILPH_MODE_ROCKET=3,SILPH_MODE_ENHANCER=5};
@@ -58,6 +60,8 @@ typedef struct {
     uint32_t mode,state,error,reason,flags,pid,candidate_state,rewards_available;
     uint32_t visual_available,visual_failed,research_status,location_status,tap_request,farmer_activity;
     uint64_t iv_reads,name_updates;
+    SilphPokemonDetails target_pokemon,last_catch;
+    uint32_t catch_outcome;
 } SilphSessionSnapshot;
 uint32_t silph_wire_crc(const void *,size_t);
 int silph_config_validate(const SilphSessionConfig *);

@@ -25,21 +25,58 @@ int silph_event_classify(void *read,void *managed,SilphManagedRef target,uint32_
     if(!r)for(unsigned i=0;i<23;i++)if(species[i]==id){bool regional=id==103?form.bits==78:id==144?form.bits==2801:id==145?form.bits==2800:id==146?form.bits==2799:true;if(regional&&(strong.bits||i>=18))*slot=(int)i+1;break;}
     int d=display.reference.serial?silph_managed_release(managed,display.reference):0;return r?r:d;
 }
-int silph_event_filter(void *read,void *managed,SilphManagedRef target,const SilphEventPolicy *policy,bool *accepted){
-    if(!accepted||!policy)return SILPH_MANAGED_ARGUMENT;*accepted=false;
-    SilphReadValue pokemon={0},display={0},value={0};SilphManagedRef response={0},wild={0};uint32_t iv[3]={0},shiny=0;
-    const char *types[]={"EncounterOutProto","IncenseEncounterOutProto","DiskEncounterOutProto"};int kind=-1,r=SILPH_MANAGED_NOT_READY;
-    for(unsigned i=0;i<3;i++){int found=silph_read_field_type(read,target,"Holoholo.Rpc",types[i],&response);if(!found&&response.serial){kind=(int)i;r=0;break;}if(response.serial){silph_managed_release(managed,response);response=(SilphManagedRef){0};}}
+static int encounter_pokemon(void *read,void *managed,SilphManagedRef target,bool quest,SilphManagedRef *out,int *source){
+    SilphReadValue pokemon={0},value={0};SilphManagedRef response={0},wild={0};
+    const char *types[]={"EncounterOutProto","IncenseEncounterOutProto","DiskEncounterOutProto","QuestEncounterOutProto"};int kind=-1,r=SILPH_MANAGED_NOT_READY;
+    for(unsigned i=quest?3:0;i<(quest?4u:3u);i++){int found=silph_read_field_type(read,target,"Holoholo.Rpc",types[i],&response);if(!found&&response.serial){kind=(int)i;r=0;break;}if(response.serial){silph_managed_release(managed,response);response=(SilphManagedRef){0};}}
     if(!r)r=silph_read_field(read,response,kind==0?"Status":"Result",SILPH_READ_ENUM32,&value);if(!r&&value.bits!=1)r=SILPH_MANAGED_NOT_READY;
     if(!r&&kind==0){r=silph_read_field(read,response,"Pokemon",SILPH_READ_REFERENCE,&value);wild=value.reference;if(!r)r=silph_read_is_type(read,wild,"Holoholo.Rpc","WildPokemonProto");if(!r)r=silph_read_field(read,wild,"EncounterId",SILPH_READ_U64,&value);uint64_t id=value.bits;if(!r)r=silph_read_call(read,target,"get_EncounterId",SILPH_READ_U64,NULL,0,&value);if(!r&&value.bits!=id)r=SILPH_MANAGED_STALE;}
     if(!r)r=silph_read_field(read,kind==0?wild:response,"Pokemon",SILPH_READ_REFERENCE,&pokemon);
     if(!r)r=silph_read_is_type(read,pokemon.reference,"Holoholo.Rpc","PokemonProto");
+    if(wild.serial){int d=silph_managed_release(managed,wild);if(!r)r=d;}if(response.serial){int d=silph_managed_release(managed,response);if(!r)r=d;}
+    if(r&&pokemon.reference.serial)silph_managed_release(managed,pokemon.reference);
+    if(!r){*out=pokemon.reference;if(source)*source=kind;}
+    return r;
+}
+static int read_ivs(void *read,SilphManagedRef pokemon,uint32_t iv[3]){
     const char *fields[]={"individualAttack_","individualDefense_","individualStamina_"};
-    for(unsigned i=0;!r&&i<3;i++){r=silph_read_field(read,pokemon.reference,fields[i],SILPH_READ_I32,&value);iv[i]=(uint32_t)value.bits;}
-    if(!r)r=silph_read_field(read,pokemon.reference,"pokemonDisplay_",SILPH_READ_REFERENCE,&display);
+    for(unsigned i=0;i<3;i++){
+        SilphReadValue value;
+        int status=silph_read_field(read,pokemon,fields[i],SILPH_READ_I32,&value);
+        if(status)return status;
+        iv[i]=(uint32_t)value.bits;
+    }
+    return 0;
+}
+void silph_farmer_pokemon_details(void *read,void *managed,SilphManagedRef pokemon,SilphPokemonDetails *details){
+    SilphReadValue value,display={0};
+    uint32_t iv[3];
+    if(!read_ivs(read,pokemon,iv))details->ivs=silph_pack_ivs(iv[0],iv[1],iv[2]);
+    if(!silph_read_field(read,pokemon,"cp_",SILPH_READ_I32,&value)&&value.bits<=INT32_MAX)
+        details->cp=(uint32_t)value.bits;
+    if(!silph_read_field(read,pokemon,"pokemonDisplay_",SILPH_READ_REFERENCE,&display)
+        &&!silph_read_is_type(read,display.reference,"Holoholo.Rpc","PokemonDisplayProto")){
+        if(!silph_read_field(read,display.reference,"Form",SILPH_READ_ENUM32,&value)&&value.bits<=INT32_MAX)
+            details->form=(uint32_t)value.bits;
+        if(!silph_read_field(read,display.reference,"Shiny",SILPH_READ_BOOL,&value))details->shiny=value.bits==1;
+    }
+    if(display.reference.serial)silph_managed_release(managed,display.reference);
+}
+void silph_farmer_encounter_details(void *read,void *managed,SilphManagedRef target,bool quest,SilphPokemonDetails *details){
+    SilphManagedRef pokemon={0};
+    if(!encounter_pokemon(read,managed,target,quest,&pokemon,NULL)){
+        silph_farmer_pokemon_details(read,managed,pokemon,details);
+        silph_managed_release(managed,pokemon);
+    }
+}
+int silph_event_filter(void *read,void *managed,SilphManagedRef target,const SilphEventPolicy *policy,bool *accepted){
+    if(!accepted||!policy)return SILPH_MANAGED_ARGUMENT;*accepted=false;
+    SilphReadValue display={0},value={0};SilphManagedRef pokemon={0};uint32_t iv[3]={0},shiny=0;int kind=-1;
+    int r=encounter_pokemon(read,managed,target,false,&pokemon,&kind);
+    if(!r)r=read_ivs(read,pokemon,iv);
+    if(!r)r=silph_read_field(read,pokemon,"pokemonDisplay_",SILPH_READ_REFERENCE,&display);
     if(!r)r=silph_read_field(read,display.reference,"Shiny",SILPH_READ_BOOL,&value);shiny=(uint32_t)value.bits;
     int accept=silph_event_accept(policy->filters,iv[0],iv[1],iv[2],shiny);if(!r&&accept<0)r=SILPH_MANAGED_CONTRACT;if(!r)*accepted=accept!=0;
     if(!r)__android_log_print(ANDROID_LOG_INFO,"SilphEvent","verified iv=%u/%u/%u shiny=%u accepted=%u source=%d",iv[0],iv[1],iv[2],shiny,*accepted,kind);
-    if(wild.serial){int d=silph_managed_release(managed,wild);if(!r)r=d;}if(response.serial){int d=silph_managed_release(managed,response);if(!r)r=d;}
-    int a=display.reference.serial?silph_managed_release(managed,display.reference):0,b=pokemon.reference.serial?silph_managed_release(managed,pokemon.reference):0;return r?r:a?a:b;
+    int a=display.reference.serial?silph_managed_release(managed,display.reference):0,b=pokemon.serial?silph_managed_release(managed,pokemon):0;return r?r:a?a:b;
 }

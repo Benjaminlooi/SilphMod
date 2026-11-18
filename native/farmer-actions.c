@@ -50,7 +50,12 @@ int silph_farmer_research_target(void *memory,SilphManagedRef target,uint64_t en
     if(!status&&(id.bits!=encounter||destroyed.bits))status=SILPH_MANAGED_STALE;
     void *object=NULL;if(!status)status=silph_managed_target(s->managed,target,&object);
     if(!status)status=silph_managed_retain(s->managed,object,false,&s->target.object);
-    if(!status){s->source=source;s->target.encounter=encounter;s->target.species=species;s->metrics.target_id=encounter;s->metrics.species=species;s->metrics.encounters++;s->metrics.state=SILPH_FARMER_RETRY;}
+    if(!status){s->source=source;s->target.encounter=encounter;s->target.species=species;s->metrics.target_id=encounter;s->metrics.species=species;s->metrics.encounters++;s->metrics.state=SILPH_FARMER_RETRY;
+        s->metrics.target_pokemon=(SilphPokemonDetails){.species=species};
+#if defined(SILPH_PRESENT_SCOPED) && !defined(SILPH_PILOT_ENHANCER)
+        silph_farmer_encounter_details(s->read,s->managed,s->target.object,true,&s->metrics.target_pokemon);
+#endif
+    }
     return status;
 }
 int silph_farmer_actions_open(void *memory,size_t bytes,void *read,void *managed,void *game,const SilphScheduleIdentity *identity,uint32_t transfers){
@@ -106,6 +111,7 @@ static int continue_session(Farmer *s){
     if(s->metrics.state!=SILPH_FARMER_DONE||!s->options.continuous||s->metrics.catches>=s->options.max_catches)return 0;
     if(s->source==SILPH_SOURCE_WILD)remember_target(s);int status=drop_target(s);if(status)return status;
     memset(&s->target,0,sizeof(s->target));s->target_throws=s->berry_attempted=s->berry_suppressed=s->active_item=s->selected_berry=s->target_deferred=s->event_target=0;
+    s->metrics.target_pokemon=(SilphPokemonDetails){0};
     s->source=SILPH_SOURCE_WILD;s->metrics.scope_granted=0;s->metrics.state=SILPH_FARMER_SELECT;return 0;
 }
 static int reserve(Farmer *s,SilphManagedRef promise,uint64_t now,const char *space,const char *name){
@@ -170,6 +176,16 @@ static int transfer_new(Farmer *s,const SilphSchedulePermit *permit,uint64_t now
     if(status==SILPH_MANAGED_NOT_READY&&now-s->owned_started<UINT64_C(15000000000))return 0;
     SilphTransferVerdict verdict={0};
     if(!status){data.options=s->options.keep_options;data.source=s->source;if(silph_transfer_evaluate(&data,sizeof(data),&verdict))status=SILPH_MANAGED_CONTRACT;}
+#if defined(SILPH_PRESENT_SCOPED) && !defined(SILPH_PILOT_ENHANCER)
+    if(!status&&data.species>0){
+        SilphPokemonDetails details=s->metrics.last_catch;
+        details.species=(uint32_t)data.species;
+        silph_farmer_pokemon_details(s->read,s->managed,pokemon,&details);
+        details.ivs=silph_pack_ivs((uint32_t)data.attack,(uint32_t)data.defense,(uint32_t)data.stamina);
+        details.shiny=(data.flags&SILPH_DATA_SHINY)!=0;
+        s->metrics.last_catch=details;
+    }
+#endif
     #ifdef SILPH_PRESENT_SCOPED
     if(!status&&verdict.decision==SILPH_VERDICT_CANDIDATE){
         uint32_t form=0;bool regional=silph_species_regional((uint32_t)data.species);int inspected=0;
@@ -181,6 +197,7 @@ static int transfer_new(Farmer *s,const SilphSchedulePermit *permit,uint64_t now
 #endif
     s->metrics.transfer_decision=verdict.decision;s->metrics.transfer_reasons=verdict.reasons;
     if(status||verdict.decision!=SILPH_VERDICT_CANDIDATE){
+        if(!status&&verdict.decision==SILPH_VERDICT_RETAIN)s->metrics.catch_outcome=SILPH_FARMER_KEPT;
         s->metrics.transfer_error=status;silph_core_finish(s->scope,id,0);s->metrics.state=SILPH_FARMER_DONE;status=0;
     }else{
         SilphReadValue promise;status=silph_action_release(s->read,permit,s->scope,s->target.encounter,&data,bag,pokemon,&promise);
@@ -196,7 +213,7 @@ static int transfer_sync(Farmer *s,bool present,uint64_t now){
     if(present&&now-s->owned_started<UINT64_C(15000000000))return 0;
     if(silph_core_finish(s->scope,s->metrics.captured_id,present?0:1))return SILPH_MANAGED_STATE;
     if(present){s->metrics.transfer_error=104;s->metrics.skipped++;}
-    else{s->metrics.transferred++;if(s->source==SILPH_SOURCE_RESEARCH)s->metrics.research_transferred++;if(s->source==SILPH_SOURCE_GO_PASS)s->metrics.go_pass_transferred++;}
+    else{s->metrics.transferred++;s->metrics.catch_outcome=SILPH_FARMER_TRANSFERRED;if(s->source==SILPH_SOURCE_RESEARCH)s->metrics.research_transferred++;if(s->source==SILPH_SOURCE_GO_PASS)s->metrics.go_pass_transferred++;}
     s->metrics.scope_granted=0;s->metrics.state=SILPH_FARMER_DONE;return 0;
 }
 static int terminal_response(Farmer *s,const SilphPromiseMetrics *promise){
@@ -235,6 +252,17 @@ static int capture_response(Farmer *s,SilphManagedRef result,bool fresh,uint64_t
     if(code.bits==SILPH_CATCH_SUCCESS&&id.bits&&fresh&&accepted==1){
         s->metrics.catches++;if(s->source==SILPH_SOURCE_RESEARCH)s->metrics.research_catches++;if(s->source==SILPH_SOURCE_GO_PASS)s->metrics.go_pass_catches++;
         s->metrics.captured_id=id.bits;s->metrics.fresh_response=1;
+        s->metrics.last_catch=s->metrics.target_pokemon;
+        s->metrics.catch_outcome=SILPH_FARMER_CAUGHT;
+#if defined(SILPH_PRESENT_SCOPED) && !defined(SILPH_PILOT_ENHANCER)
+        if(!s->transfer_enabled&&!s->metrics.last_catch.ivs){
+            SilphManagedRef owned={0};
+            if(!silph_game_read_owned(s->game,id.bits,&owned)&&owned.serial
+                &&!silph_read_is_type(s->read,owned,"Holoholo.Rpc","PokemonProto"))
+                silph_farmer_pokemon_details(s->read,s->managed,owned,&s->metrics.last_catch);
+            release(s,&owned);
+        }
+#endif
 #ifdef SILPH_PILOT_SERVICE
 #if defined(SILPH_PRESENT_SCOPED) && !defined(SILPH_PILOT_ENHANCER)
         if(s->target.spawn_kind)__android_log_print(ANDROID_LOG_INFO,"SilphFarmer","%s capture confirmed encounter=%llu captured=%llu",s->target.spawn_kind==2?"lure":"incense",(unsigned long long)s->target.encounter,(unsigned long long)id.bits);
@@ -275,6 +303,10 @@ int silph_farmer_actions_tick(void *memory,const SilphSchedulePermit *permit,con
         status=silph_game_read_select(s->game,50,accept_target,s,&s->target);
         if(status==SILPH_MANAGED_NOT_READY){*output=s->metrics;return 0;}
         if(!status){s->source=SILPH_SOURCE_WILD;s->metrics.target_id=s->target.encounter;s->metrics.species=s->target.species;
+            s->metrics.target_pokemon=(SilphPokemonDetails){.species=s->target.species};
+#if defined(SILPH_PRESENT_SCOPED) && !defined(SILPH_PILOT_ENHANCER)
+            silph_game_read_pokemon_form(s->game,s->target.object,true,&s->metrics.target_pokemon.form);
+#endif
 #ifdef SILPH_PILOT_SERVICE
 #if defined(SILPH_PRESENT_SCOPED) && !defined(SILPH_PILOT_ENHANCER)
             if(s->target.spawn_kind){SilphReadValue item={0};int source=silph_read_call(s->read,s->target.object,"get_SourceType",SILPH_READ_ENUM32,NULL,0,&item);__android_log_print(ANDROID_LOG_INFO,"SilphFarmer","%s encounter species=%u encounter=%llu item=%llu sourceRead=%d",s->target.spawn_kind==2?"lure":"incense",s->target.species,(unsigned long long)s->target.encounter,(unsigned long long)item.bits,source);}
@@ -314,6 +346,8 @@ int silph_farmer_actions_tick(void *memory,const SilphSchedulePermit *permit,con
                 s->metrics.state=SILPH_FARMER_RETRY;
 #if defined(SILPH_PRESENT_SCOPED) && !defined(SILPH_PILOT_ENHANCER)
                 if(s->event_target){bool accepted=false;int checked=silph_event_filter(s->read,s->managed,s->target.object,&s->options.event,&accepted);if(checked||!accepted){s->metrics.state=SILPH_FARMER_DONE;s->metrics.skipped++;if(checked)s->target_deferred=1;}__android_log_print(ANDROID_LOG_INFO,"SilphEvent","encounter=%llu species=%u slot=%u accepted=%u readError=%d",(unsigned long long)s->target.encounter,s->target.species,s->event_target,accepted,checked);}
+                if(!status&&s->metrics.state==SILPH_FARMER_RETRY)
+                    silph_farmer_encounter_details(s->read,s->managed,s->target.object,false,&s->metrics.target_pokemon);
 #endif
             }
             int a=release(s,&result),b=silph_managed_promise_close(s->pending);if(!status)status=a?a:b;

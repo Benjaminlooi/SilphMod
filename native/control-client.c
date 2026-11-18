@@ -13,6 +13,8 @@
 #include <time.h>
 #include <unistd.h>
 
+_Static_assert(SILPH_KEC_BUNDLE_BYTES <= SILPH_CONTROL_SNAPSHOT_CAPACITY, "Control reply must fit the snapshot and Kecleon event");
+
 static uint64_t number(const char *text) {
     if (!text || !*text || *text == '-' || *text == '+') return 0;
     char *end = NULL;errno = 0;uint64_t value = strtoull(text, &end, 10);

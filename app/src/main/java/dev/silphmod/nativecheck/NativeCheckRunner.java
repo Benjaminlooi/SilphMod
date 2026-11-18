@@ -73,8 +73,8 @@ final class NativeCheckRunner {
     private final BlockingQueue<String> lines = new ArrayBlockingQueue<>(128);
     private volatile boolean stopping, focusActive, focusQuit, streamFailed, streamEnded;
     private volatile long focusAt;
-    private volatile int farmerActivity;
-    private volatile long farmerActivityAt;
+    private record FarmerOverlayUpdate(NativeSessionWire.Snapshot snapshot, long receivedAt) {}
+    private volatile FarmerOverlayUpdate farmerOverlayUpdate;
     private volatile NativeSessionController controller;
     private volatile NativeProgressWatch progressWatch;
     private volatile String status = "Preparing…";
@@ -140,10 +140,11 @@ final class NativeCheckRunner {
         if (current != null) current.requestStop("Stopped by user");
     }
 
-    int farmerActivity() {
+    NativeSessionWire.Snapshot farmerOverlaySnapshot() {
+        FarmerOverlayUpdate update = farmerOverlayUpdate;
         long now = SystemClock.elapsedRealtime();
-        return focusActive && !focusQuit && !stopping && !streamEnded && !streamFailed
-                && now - focusAt <= 2500 && now - farmerActivityAt <= 2500 ? farmerActivity : 0;
+        return update != null && focusActive && !focusQuit && !stopping && !streamEnded && !streamFailed
+                && now - focusAt <= 2500 && now - update.receivedAt() <= 2500 ? update.snapshot() : null;
     }
 
     long progressSequence() {
@@ -416,7 +417,7 @@ final class NativeCheckRunner {
     }
 
     private void releaseAttempt(boolean returnToApp) throws Exception {
-        farmerActivity = 0;
+        farmerOverlayUpdate = null;
         settings.elapsedPulse(mode, false);
         if (mode == 3 && gamePid > 1) try {
             log.write("rocket_native_details", command("logcat -d -v brief --pid=" + gamePid + " -s SilphRocket:V SilphRuntime:I SilphPresentation:I | tail -c 18000", 3000));
@@ -512,7 +513,7 @@ final class NativeCheckRunner {
         ticks = 0;
         snapshotKey = "";
         snapshotLoggedAt = 0;
-        farmerActivity = 0;
+        farmerOverlayUpdate = null;
         injected = cleanup = false;
         finishReason = "";
         statusAddress = nonceText = null;
@@ -686,8 +687,8 @@ final class NativeCheckRunner {
                 }
                 long now = SystemClock.elapsedRealtime();
                 if (mode == NativeSessionWire.FARMER) {
-                    farmerActivityAt = now;
-                    farmerActivity = snapshot.state == 2 && snapshot.error == 0 ? snapshot.farmerActivity : 0;
+                    farmerOverlayUpdate = snapshot.state == 2 && snapshot.error == 0
+                            ? new FarmerOverlayUpdate(snapshot, now) : null;
                 }
                 String key = "state=" + snapshot.state + " flags=" + snapshot.flags + " error=" + snapshot.error + " reason=" + snapshot.reason + " catches=" + snapshot.caught + " spins=" + snapshot.spun + " transferred=" + snapshot.transferred + " items=" + snapshot.discarded + " encounters=" + snapshot.encounters + " candidateState=" + snapshot.candidateState + " xp=" + snapshot.xp + " stardust=" + snapshot.stardust + " rewardsAvailable=" + snapshot.rewardsAvailable + " encounterId=" + Long.toUnsignedString(snapshot.encounterId) + " capturedId=" + Long.toUnsignedString(snapshot.capturedId) + " visualAvailable=" + snapshot.visualAvailable + " visualFailed=" + snapshot.visualFailed + " ivReads=" + snapshot.ivReads + " nameUpdates=" + snapshot.nameUpdates;
 

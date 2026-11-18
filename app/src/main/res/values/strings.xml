@@ -42,4 +42,31 @@
         <item quantity="one">%1$d type selected</item>
         <item quantity="other">%1$d types selected</item>
     </plurals>
+    <!-- Indexed by the Farmer activity codes in session-wire.h. -->
+    <string-array name="farmer_overlay_activities">
+        <item></item>
+        <item>Waiting</item>
+        <item>Looking for Pokémon</item>
+        <item>Starting encounter</item>
+        <item>Feeding a berry</item>
+        <item>Catching Pokémon</item>
+        <item>Checking new catch</item>
+        <item>Transferring Pokémon</item>
+        <item>Spinning PokéStop</item>
+        <item>Discarding items</item>
+        <item>Claiming research</item>
+        <item>Claiming GO Pass rewards</item>
+        <item>Caring for buddy</item>
+        <item>Handling gifts</item>
+        <item>Removing buddy</item>
+    </string-array>
+    <string name="farmer_overlay_action">Farmer · %1$s</string>
+    <string name="farmer_overlay_caught">Caught %1$s</string>
+    <string name="farmer_overlay_kept">Kept %1$s</string>
+    <string name="farmer_overlay_transferred">Transferred %1$s</string>
+    <string name="farmer_overlay_unknown_pokemon">Pokémon #%1$d</string>
+    <string name="farmer_overlay_cp">CP %1$d</string>
+    <string name="farmer_overlay_iv">%1$d%% IV (%2$d/%3$d/%4$d)</string>
+    <string name="farmer_overlay_shiny">Shiny</string>
+    <string name="farmer_overlay_totals">%1$d caught · %2$d transferred</string>
 </resources>

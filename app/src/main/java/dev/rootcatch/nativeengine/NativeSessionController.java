@@ -21,7 +21,7 @@ public final class NativeSessionController {
 
     private static final Pattern CONNECTED = Pattern.compile("\\{\"event\":\"native_control_connected\",\"pid\":([0-9]+),\"serverUid\":([0-9]+)\\}");
     private static final Pattern REPLY = Pattern.compile("\\{\"event\":\"native_control_reply\",\"sequence\":\"([0-9]+)\",\"command\":([0-9]+),\"status\":([0-9]+),\"state\":([0-9]+),\"reason\":([0-9]+),\"queued\":([0-9]+),\"readOnly\":([01]),\"executed\":\"([0-9]+)\",\"canceled\":\"([0-9]+)\",\"pulses\":\"([0-9]+)\"\\}");
-    private static final Pattern SNAPSHOT = Pattern.compile("\\{\"event\":\"native_engine_snapshot\",\"bytes\":\"([a-f0-9]{512})\"\\}");
+    private static final Pattern SNAPSHOT = Pattern.compile("\\{\"event\":\"native_engine_snapshot\",\"bytes\":\"([a-f0-9]{" + NativeSessionWire.SNAPSHOT_BYTES * 2 + "})\"\\}");
     private final NativeSessionWire.Config config;
     private final NativeSessionState state;
     private final Consumer<String> sender;

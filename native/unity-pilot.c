@@ -767,6 +767,9 @@ static int execute(void *unused,const SilphScheduleJob *job,const SilphScheduleP
     else if(farmer_activity&&farmer_activity<=SILPH_FARMER_ACTIVITY_SEARCH&&gift_metrics.state==SILPH_GIFT_WAITING)
         farmer_activity=SILPH_FARMER_ACTIVITY_GIFTS;
     session_snapshot.farmer_activity=farmer_activity;
+    session_snapshot.target_pokemon=previous_session.farmer.target_pokemon;
+    session_snapshot.last_catch=previous_session.farmer.last_catch;
+    session_snapshot.catch_outcome=previous_session.farmer.catch_outcome;
 #endif
 #ifdef SILPH_FARMER_MAP_GESTURE
     if((session_config.flags&SILPH_ENH_TELEPORT)&&farmer_view_metrics.taps){session_snapshot.tap_request=(uint32_t)((farmer_view_metrics.taps-1)%65535)+1;session_snapshot.latitude=farmer_view_metrics.latitude;session_snapshot.longitude=farmer_view_metrics.longitude;}

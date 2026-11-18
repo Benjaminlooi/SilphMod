@@ -13,6 +13,8 @@ typedef struct { uint64_t encounters,throws,catches,captured_id,target_id,fresh_
     uint64_t research_catches,research_transferred;
     uint64_t go_pass_catches,go_pass_transferred;
     uint32_t promise_phase,promise_state,promise_reason;
+    SilphPokemonDetails target_pokemon,last_catch;
+    uint32_t catch_outcome;
 } SilphFarmerMetrics;
 typedef struct {
     uint32_t abi,continuous,max_catches,quality,curve,use_berries,keep_options,berry_count;

@@ -7,7 +7,7 @@
 #define SILPH_CONTROL_NAME_CAPACITY 96u
 #define SILPH_CONTROL_EXTENDED_ABI 2u
 #define SILPH_CONTROL_BODY_CAPACITY 1024u
-#define SILPH_CONTROL_SNAPSHOT_CAPACITY 896u
+#define SILPH_CONTROL_SNAPSHOT_CAPACITY 1024u
 
 typedef struct {
     uint64_t magic, sequence, key_hi, key_lo, process_ticks;

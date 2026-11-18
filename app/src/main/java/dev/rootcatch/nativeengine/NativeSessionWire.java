@@ -6,7 +6,7 @@ import java.util.Arrays;
 import java.util.zip.CRC32;
 
 public final class NativeSessionWire {
-    public static final int CONFIG_BYTES = 1024, SNAPSHOT_BYTES = 256, FARMER = 1, KECLEON = 2, ROCKET = 3, ENHANCER = 5;
+    public static final int CONFIG_BYTES = 1024, SNAPSHOT_BYTES = 300, FARMER = 1, KECLEON = 2, ROCKET = 3, ENHANCER = 5;
     public static final int CATCH = 1, SPIN = 2, CLEAN = 4, TRANSFER = 8, BERRIES = 16, CURVE = 32, READ_ONLY = 64, TRAINER_NAME = 128, IV_NAMES = 256, FIX_LOCATION = 512, SCENES = 1024, MANUAL_TRANSFER = 2048, FAST_GIFTS = 4096, REMOVE_BUDDY = 8192, AUTO_OPEN_GIFTS = 16384, AUTO_SEND_GIFTS = 32768, RECOMMENDED_TEAM = 65536, EVENT_ACTIONS = 131072;
     public static final int ENH_FAST = 262144, ENH_INTRO = 524288, ENH_ROCKET = 1048576, ENH_TELEPORT = 2097152, ENH_THROW = 4194304, ENH_AIM = 8388608, ENH_RAID = 16777216, ENH_INFO = 33554432, ENH_TRANSFER = 67108864, ENH_RAID_HEAL = 134217728, ENH_AUTORAID = 268435456, ENH_LIGHT_GRAPHICS = 536870912;
 
@@ -193,12 +193,24 @@ public final class NativeSessionWire {
         return c;
     }
 
+    public record PokemonDetails(int species, int form, int cp, int ivs, boolean shiny) {
+        private static PokemonDetails read(ByteBuffer b, int offset) {
+            int species = b.getInt(offset), form = b.getInt(offset + 4), cp = b.getInt(offset + 8);
+            int ivs = b.getInt(offset + 12), shiny = b.getInt(offset + 16);
+            require(species >= 0 && form >= 0 && cp >= 0 && ivs >= 0 && ivs <= 4096 && (shiny == 0 || shiny == 1)
+                    && (species != 0 || (form | cp | ivs | shiny) == 0));
+            return new PokemonDetails(species, form, cp, ivs, shiny == 1);
+        }
+    }
+
     public static final class Snapshot {
         public final int mode, state, error, reason, flags, pid, candidateState, rewardsAvailable, visualAvailable, visualFailed, researchStatus, locationStatus, tapRequest, farmerActivity;
         public final long ivReads, nameUpdates;
         public final long ticks, sessionHi, sessionLo, sequence, accountHi, accountLo;
         public final long caught, fled, spun, discarded, transferred, encounters, shinies, berries, throwsCount, xp, stardust, encounterId, capturedId, candidateRequest;
         public final double latitude, longitude;
+        public final PokemonDetails targetPokemon, lastCatch;
+        public final int catchOutcome;
 
         private Snapshot(ByteBuffer b) {
             mode = b.getInt(16);
@@ -241,6 +253,11 @@ public final class NativeSessionWire {
             nameUpdates = b.getLong(240);
             researchStatus = b.getInt(248) & 65535;
             locationStatus = b.getInt(248) >>> 16;
+            targetPokemon = PokemonDetails.read(b, 252);
+            lastCatch = PokemonDetails.read(b, 272);
+            catchOutcome = b.getInt(292);
+            require(catchOutcome >= 0 && catchOutcome <= 3 && (catchOutcome == 0) == (lastCatch.species() == 0)
+                    && (mode == FARMER || (targetPokemon.species() | lastCatch.species()) == 0));
             require((visualAvailable & ~7552) == 0 && (visualFailed & ~7552) == 0 && (visualAvailable & visualFailed) == 0 && ivReads >= 0 && nameUpdates >= 0);
             require(validMode(mode) && state >= 0 && state <= 7 && flags >= 0 && flags <= 15 && pid > 1 && ticks > 0 && (sessionHi != 0 || sessionLo != 0)
                     && rewardsAvailable >= 0 && rewardsAvailable <= 3 && Double.isFinite(latitude) && Double.isFinite(longitude) && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180);
@@ -252,14 +269,18 @@ public final class NativeSessionWire {
     }
 
     public static Snapshot decodeSnapshot(byte[] data) {
-        ByteBuffer b = checked(data, SNAPSHOT_BYTES, SNAPSHOT_MAGIC, 252);
+        ByteBuffer b = checked(data, SNAPSHOT_BYTES, SNAPSHOT_MAGIC, SNAPSHOT_BYTES - 4, 2);
         return new Snapshot(b);
     }
 
     private static ByteBuffer checked(byte[] data, int size, long magic, int checksumAt) {
+        return checked(data, size, magic, checksumAt, 1);
+    }
+
+    private static ByteBuffer checked(byte[] data, int size, long magic, int checksumAt, int version) {
         require(data != null && data.length == size);
         ByteBuffer b = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN);
-        require(b.getLong(0) == magic && b.getInt(8) == 1 && b.getInt(12) == size);
+        require(b.getLong(0) == magic && b.getInt(8) == version && b.getInt(12) == size);
         CRC32 crc = new CRC32();
         crc.update(data, 0, checksumAt);
         require(b.getInt(checksumAt) == (int) crc.getValue());

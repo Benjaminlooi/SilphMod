@@ -129,7 +129,7 @@ public final class CheckService extends Service {
         @Override
         public void run() {
             if (farmerOverlay == null || runner == null) return;
-            farmerOverlay.show(runner.farmerActivity());
+            farmerOverlay.show(runner.farmerOverlaySnapshot());
             main.postDelayed(this, 250);
         }
     };

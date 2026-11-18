@@ -43,4 +43,28 @@
         <item quantity="one">%1$d개 타입 선택됨</item>
         <item quantity="other">%1$d개 타입 선택됨</item>
     </plurals>
+    <string-array name="farmer_overlay_activities">
+        <item></item>
+        <item>대기 중</item>
+        <item>포켓몬 찾는 중</item>
+        <item>포켓몬 만나는 중</item>
+        <item>나무열매 주는 중</item>
+        <item>포켓몬 잡는 중</item>
+        <item>잡은 포켓몬 확인 중</item>
+        <item>포켓몬 보내는 중</item>
+        <item>포켓스톱 돌리는 중</item>
+        <item>도구 버리는 중</item>
+        <item>리서치 보상 받는 중</item>
+        <item>GO패스 보상 받는 중</item>
+        <item>파트너 돌보는 중</item>
+        <item>선물 처리 중</item>
+        <item>파트너 해제 중</item>
+    </string-array>
+    <string name="farmer_overlay_action">파머 · %1$s</string>
+    <string name="farmer_overlay_caught">%1$s 포획</string>
+    <string name="farmer_overlay_kept">%1$s 보관</string>
+    <string name="farmer_overlay_transferred">%1$s 보냄</string>
+    <string name="farmer_overlay_unknown_pokemon">포켓몬 #%1$d</string>
+    <string name="farmer_overlay_shiny">색이 다른</string>
+    <string name="farmer_overlay_totals">포획 %1$d마리 · 보냄 %2$d마리</string>
 </resources>
