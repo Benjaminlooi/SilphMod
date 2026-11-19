@@ -619,6 +619,14 @@ The account balance is not subtracted and rewards are not estimated by multiplyi
 
 ## Build
 
+### GitHub Actions
+
+The **Build APK** workflow runs on pull requests and manually from the repository's **Actions** tab. After a successful run, download `SilphMod-debug-<run number>` from the run's **Artifacts** section and extract the installable debug APK. Artifacts are retained for 14 days.
+
+The workflow installs the Android SDK and NDK and builds all native components. No signing secrets are required for debug builds. Optionally set the repository Actions variable `SILPH_RAID_API` to your HTTPS raid service origin to enable that configuration in the APK. Debug APKs use a debug certificate and cannot update an installation signed with a different certificate.
+
+### Local builds
+
 Requirements: JDK **17 or later**, Android SDK **36**, Android NDK **r28c / 28.2.13676358**, Git and PowerShell. Android Studio can open the repository root. Set `JAVA_HOME` and `ANDROID_HOME`, or create your own `local.properties` with `sdk.dir`.
 
 ```powershell
