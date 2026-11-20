@@ -629,6 +629,19 @@ The workflow installs the Android SDK and NDK and builds all native components. 
 
 Requirements: JDK **17 or later**, Android SDK **36**, Android NDK **r28c / 28.2.13676358**, Git and PowerShell. Android Studio can open the repository root. Set `JAVA_HOME` and `ANDROID_HOME`, or create your own `local.properties` with `sdk.dir`.
 
+The project uses **Temurin JDK 21** in CI. With [mise](https://mise.jdx.dev/), install the version configured in `mise.toml` and run Gradle:
+
+```sh
+mise trust
+mise install
+mise exec -- java -version
+mise exec -- ./gradlew --version
+```
+
+With mise shell activation enabled, entering this directory sets `JAVA_HOME` and adds the JDK to `PATH` automatically. For Android Studio, set the Gradle JDK to the directory printed by `mise where java`.
+
+On Windows with Android Studio's bundled JDK:
+
 ```powershell
 $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 $env:ANDROID_HOME = "C:\Users\user\AppData\Local\Android\Sdk"
