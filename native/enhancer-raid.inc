@@ -20,7 +20,7 @@ static void *find_nested(Enhancer *s,void *k,const char *name){
     void *it=NULL;for(unsigned i=0;k&&i<128;i++){void *v=s->api.nested(k,&it);if(!v)return NULL;const char *n=s->api.class_name(v);if(n&&!strcmp(n,name))return v;}return NULL;
 }
 static void *typed_dictionary(Enhancer *s,void *master,const char *name){
-    void *container=NULL;const void *f=master?s->api.field(s->base.object_get_class(master),"ctym"):NULL;if(!f)return NULL;s->api.get(master,f,&container);if(!container)return NULL;
+    void *container=NULL;const void *f=master?s->api.field(s->base.object_get_class(master),"cvlw"):NULL;if(!f)return NULL;s->api.get(master,f,&container);if(!container)return NULL;
     void *k=klass(s,"holo-protos.dll","Holoholo.Rpc",name),*key=k?s->api.type_object(s->base.class_get_type(k)):NULL;if(!key)return NULL;
     const char *arg[]={"System.Type"};const void *get=method(s,s->base.object_get_class(container),"get_Item",NULL,1,arg);void *args[]={key},*dictionary=NULL;return invoke(s,get,container,args,&dictionary)?dictionary:NULL;
 }
@@ -115,7 +115,7 @@ static void raid_tick(Enhancer *s,const SilphSchedulePermit *permit,uint64_t now
     }
     void *boss_id=NULL,*previous=NULL;if(read_ref(s,actor,"get_ActorId",&boss_id)&&(!target(s,s->raid_actor,&previous)||previous!=boss_id))keep(s,boss_id,&s->raid_actor,false);
     void *local_actor=NULL,*local_id=NULL;if(object_field(s,player_state,"Actor","Niantic.Holoholo.VNext.BattleActorState",&local_actor)&&read_ref(s,local_actor,"get_ActorId",&local_id)&&(!target(s,s->raid_local,&previous)||previous!=local_id))keep(s,local_id,&s->raid_local,false);
-    void *update=NULL;if(object_field(s,director,"equz","Holoholo.Rpc.BattleStateOutProto",&update))raid_events(s,director,update,permit);
+    void *update=NULL;if(object_field(s,director,"erqi","Holoholo.Rpc.BattleStateOutProto",&update))raid_events(s,director,update,permit);
     if(!s->raid_bound){s->raid_bound=1;void *local=NULL;if(read_ref(s,state,"get_LocalActor",&local))care_track(s,local);__android_log_print(ANDROID_LOG_INFO,"SilphEnhancer","normal raid bound msPerTurn=%lld",(long long)ms);}
     void *action=NULL;if(!s->raid_primary_events&&object_field(s,boss_state,"CurrentAction","Niantic.Holoholo.VNext.BattleTurnAction",&action))raid_consider_action(s,master,action,turn,ms,false);
     if(!s->raid_primary_events&&(s->dodge_end<turn||s->raid_dodge_for==s->raid_charge_turn)){
@@ -149,14 +149,14 @@ static void raid_tick(Enhancer *s,const SilphSchedulePermit *permit,uint64_t now
 }
 static void raid_open(Enhancer *s){
     if(!(s->config.flags&SILPH_ENH_RAID))return;const char *space="Niantic.Holoholo.VNext",*assembly="holo-game-vnext-battle.dll";s->raid_class=klass(s,assembly,space,"RaidBattleVNextState");s->director_class=klass(s,assembly,space,"BattleDirector");s->raid_manager_class=klass(s,assembly,space,"RaidBattlePokemonManager");
-    s->raid_director=field(s,s->raid_class,"eqqh","Niantic.Holoholo.VNext.IBattleDirector");s->raid_manager=field(s,s->raid_class,"eqpl","Niantic.Holoholo.VNext.IRaidBattlePokemonManager");s->raid_master=field(s,s->raid_class,"eqpz","IGameMasterData");s->event_class=klass(s,"holo-protos.dll","Holoholo.Rpc","BattleEventProto");void *types=find_nested(s,s->event_class,"Types");s->attack_class=find_nested(s,types,"Attack");s->dodge_class=find_nested(s,types,"Dodge");
+    s->raid_director=field(s,s->raid_class,"erlq","Niantic.Holoholo.VNext.IBattleDirector");s->raid_manager=field(s,s->raid_class,"erkt","Niantic.Holoholo.VNext.IRaidBattlePokemonManager");s->raid_master=field(s,s->raid_class,"erli","IGameMasterData");s->event_class=klass(s,"holo-protos.dll","Holoholo.Rpc","BattleEventProto");void *types=find_nested(s,s->event_class,"Types");s->attack_class=find_nested(s,types,"Attack");s->dodge_class=find_nested(s,types,"Dodge");
     const char *enter_args[]={"Niantic.Platform.GameStates.StateLogic.IStateApi","Niantic.Holoholo.Raid.RaidBattleLaunchData"},*submit_args[]={"Holoholo.Rpc.BattleEventProto","System.Boolean"};const void *entry=method(s,s->raid_class,"EnterState","System.Void",2,enter_args),*exit=method(s,s->raid_class,"ExitState","System.Void",0,NULL);s->submit_action=method(s,s->director_class,"TrySubmitPlayerAction",NULL,2,submit_args);
     if(!entry||!exit||!s->submit_action||!s->raid_director||!s->raid_manager||!s->raid_master||!s->event_class||!s->attack_class||!s->dodge_class)return;
     if(hook(s,entry,(void *)raid_enter,(void **)&raid_enter_original)||hook(s,exit,(void *)raid_exit,(void **)&raid_exit_original)||hook(s,s->submit_action,(void *)raid_submit,(void **)&raid_submit_original))return;
     const char *update_args[]={"Holoholo.Rpc.BattleStateOutProto"};const void *updates[4]={0};void *it=NULL;unsigned count=0;
     for(unsigned i=0;i<512;i++){const void *m=s->base.class_get_methods(s->director_class,&it);if(!m)break;const char *name=s->base.method_get_name(m);if(name&&method(s,s->director_class,name,"System.Void",1,update_args)==m){if(count==4)return;updates[count++]=m;}}
     void *proxies[]={(void *)raid_update0,(void *)raid_update1,(void *)raid_update2,(void *)raid_update3};for(unsigned i=0;i<count;i++)if(hook(s,updates[i],proxies[i],(void **)&raid_update_original[i]))return;
-    const char *turn_args[]={"System.Int64"};const void *turn=method(s,s->director_class,"crcj","System.Void",1,turn_args);
+    const char *turn_args[]={"System.Int64"};const void *turn=method(s,s->director_class,"crmp","System.Void",1,turn_args);
     if(turn&&hook(s,turn,(void *)raid_new_turn,(void **)&raid_turn_original))return;
     if(count)s->metrics.available|=SILPH_ENH_RAID;
 }

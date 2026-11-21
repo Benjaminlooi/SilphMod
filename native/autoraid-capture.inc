@@ -16,7 +16,7 @@ static bool ar_single_reward(Enhancer *s,void *results,void **reward){
 }
 static int ar_prepare_capture(Enhancer *s,void *gui,void *info,uint64_t now){
     AutoRaid *a=&s->route;void *reward=NULL,*results=NULL,*fort=NULL,*pokemon=NULL,*factory=NULL,*model=NULL;char gym[161]={0};int64_t id=0;int32_t balls=0,ball=0;
-    if(!object_field(s,gui,"elcl","Holoholo.Rpc.RaidEncounterProto",&reward)){
+    if(!object_field(s,gui,"elvp","Holoholo.Rpc.RaidEncounterProto",&reward)){
         if(!read_ref(s,info,"get_BattleResults",&results)||!ar_single_reward(s,results,&reward)){ar_resolve_gate(s,2);return 0;}
     }
     if(!object_field(s,reward,"FortId","System.String",&fort)||!label_string(s,fort,gym,sizeof(gym))||strcmp(gym,a->site.gym)||!read_i64(s,reward,"EncounterId",&id)||!id){ar_resolve_gate(s,3);return 0;}

@@ -152,7 +152,7 @@ int silph_farmer_view_open(void *memory,size_t bytes,const SilphManagedApi *base
     void *gui=klass(s,"holo-game-core.dll","Niantic.Holoholo.NUI","GuiLayerService"),*go=klass(s,"UnityEngine.CoreModule.dll","UnityEngine","GameObject");
     s->top=method(s,gui,"TopGui",18);s->active=method(s,s->base.object_get_class(map),"get_IsActiveState",2);s->visible=method(s,s->base.object_get_class(map),"get_IsVisible",2);
     s->remote=method(s,s->pokemon,"get_IsRemoteTradeView",2);s->selection=field(s,s->pokemon,"multiChoiceButtons","UnityEngine.GameObject");s->selection_active=method(s,go,"get_activeInHierarchy",2);
-    const void *entry=method(s,s->scheduler,"Update",1),*gui_field=field(s,s->base.object_get_class(map),"eltp","Niantic.Holoholo.NUI.IGuiLayerService");
+    const void *entry=method(s,s->scheduler,"Update",1),*gui_field=field(s,s->base.object_get_class(map),"emmx","Niantic.Holoholo.NUI.IGuiLayerService");
     if(!s->scheduler||!s->pokemon||!s->items||!s->profile||!s->main_menu||!s->top||!s->active||!s->visible||!entry||!gui_field)return 1;
     s->metrics.stage=3;size_t size=silph_managed_size(4);s->managed=calloc(1,size);if(!s->managed)return 1;
     if(silph_managed_open(s->managed,size,base,4,64)){free(s->managed);s->managed=NULL;return 1;}

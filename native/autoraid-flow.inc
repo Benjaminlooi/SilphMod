@@ -128,7 +128,7 @@ static int64_t ar_lobby_remaining(Enhancer *s,void *gui,void *lobby,bool battle)
     if(battle&&utc>=0){int64_t end=0;
         if(read_i64(s,lobby,"RaidBattleEndMs",&end)){int64_t remaining=end-utc;if(remaining>=0&&remaining<=600000)return remaining;}}
     void *timer=NULL,*label=NULL,*text=NULL;char value[32]={0};
-    if(object_field(s,gui,"ekti","Niantic.Holoholo.Battle.BattleTimerController",&timer)&&object_field(s,timer,"label","UnityEngine.UI.Text",&label)&&read_ref(s,label,"get_text",&text)&&label_string(s,text,value,sizeof(value))){
+    if(object_field(s,gui,"elml","Niantic.Holoholo.Battle.BattleTimerController",&timer)&&object_field(s,timer,"label","UnityEngine.UI.Text",&label)&&read_ref(s,label,"get_text",&text)&&label_string(s,text,value,sizeof(value))){
         char *end=NULL;long seconds=strtol(value,&end,10);if(end!=value&&!*end&&seconds>=0&&seconds<=600)return seconds*1000;
     }
     int64_t end=0;if(!read_i64(s,lobby,battle?"RaidBattleEndMs":"PokemonSelectionEndMs",&end)||end<=0)return -1;
@@ -189,14 +189,14 @@ static int ar_scan(Enhancer *s,uint64_t now){
         SilphManagedRef gym={0};void *object=NULL;r=silph_raid_read_gym(a->reader,site.gym,&gym);if(!r)r=silph_managed_target(a->managed,gym,&object);
         if(!r&&!keep(s,object,&a->place,false))r=SILPH_MANAGED_CAPACITY;if(gym.serial)silph_managed_release(a->managed,gym);if(r)return r;
         a->site=site;void *explore=NULL,*root=NULL;if(!target(s,a->explore,&explore)||!target(s,a->root,&root))return SILPH_MANAGED_NOT_READY;
-        ar_void(s,root,"PlayerSawRaidIntroSequence");bool remote=false;int32_t context=0;const char *types[]={"Niantic.Holoholo.Gym.MapGym","System.Boolean","System.Action","Niantic.Holoholo.Gym.PreviousContext"};
-        void *args[]={object,&remote,NULL,&context};const void *open=method(s,s->base.object_get_class(explore),"GymSelected","System.Void",4,types);
+        ar_void(s,root,"PlayerSawRaidIntroSequence");bool remote=false;int32_t context=0;const char *types[]={"Niantic.Holoholo.Gym.IMapGym","System.Boolean","System.Action","Niantic.Holoholo.Gym.PreviousContext","Niantic.Holoholo.Gym.IncompleteRaidRecoveryData"};
+        void *args[]={object,&remote,NULL,&context,NULL};const void *open=method(s,s->base.object_get_class(explore),"GymSelected","System.Void",5,types);
         if(!open){__android_log_print(ANDROID_LOG_ERROR,"SilphRaid","GymSelected signature unavailable");return SILPH_MANAGED_CONTRACT;}
         if(!invoke(s,open,explore,args,NULL)){ar_phase(s,5,1,0,now);ar_done(s,7);return 0;}a->ui_at=now;ar_phase(s,5,1,0,now+UINT64_C(600000000000));return 0;
     }return 0;
 }
 static bool ar_cost(Enhancer *s,void *gui,uint32_t wanted){
-    void *cost=NULL,*items=NULL;if(!object_field(s,gui,"eeiw","Holoholo.Rpc.RaidEntryCostProto",&cost))return false;
+    void *cost=NULL,*items=NULL;if(!object_field(s,gui,"eezz","Holoholo.Rpc.RaidEntryCostProto",&cost))return false;
     const void *list=s->api.field(s->base.object_get_class(cost),"ItemRequirement");if(!list)return false;s->api.get(cost,list,&items);if(!items)return false;
     int32_t remote=0,count=0;if(!read_i32(s,cost,"RaidType",&remote,true)||remote==2||!scalar(s,method(s,s->base.object_get_class(items),"get_Count","System.Int32",0,NULL),items,&count,4))return false;
     if(count!=1){__android_log_print(ANDROID_LOG_INFO,"SilphRaid","entry cost requirements=%d location=%d",count,remote);return false;}
@@ -235,7 +235,7 @@ static int ar_approach(Enhancer *s,const SilphSchedulePermit *permit,void *gui,u
     return 0;
 }
 static bool ar_party(Enhancer *s,void *lobby,void **panel){
-    void *prep=NULL,*scroll=NULL;return object_field(s,lobby,"ektl","Niantic.Holoholo.Raid.RaidBattlePrepUiController",&prep)&&object_field(s,prep,"dynoScrollRect","Niantic.Holoholo.Gym.BattlePrepPartyDynoScrollRect",&scroll)&&read_ref(s,scroll,"CurrentPageGui",panel);
+    void *prep=NULL,*scroll=NULL;return object_field(s,lobby,"elmo","Niantic.Holoholo.Raid.RaidBattlePrepUiController",&prep)&&object_field(s,prep,"dynoScrollRect","Niantic.Holoholo.Gym.BattlePrepPartyDynoScrollRect",&scroll)&&read_ref(s,scroll,"CurrentPageGui",panel);
 }
 static void ar_gate(Enhancer *s,unsigned gate){if(s->route.lobby_gate!=gate){s->route.lobby_gate=gate;__android_log_print(ANDROID_LOG_INFO,"SilphRaid","lobby gate=%u",gate);}}
 static bool ar_team_exhausted(Enhancer *s){
@@ -271,7 +271,7 @@ static int ar_sync_recovery(Enhancer *s,const SilphSchedulePermit *permit,void *
     if(a->recovery_rpc==4)return 1;if(a->recovery_rpc==2)a->recovery_rpc=3;
     if(!silph_schedule_permitted(permit,true))return 0;
     void *service=NULL,*promise=NULL;bool ok=false;
-    if(a->recovery_rpc==0){ok=object_field(s,gui,"eksq","Niantic.Holoholo.VNext.IRaidVNextRpcService",&service)&&invoke(s,method(s,s->base.object_get_class(service),"SyncVNextBattle",NULL,0,NULL),service,NULL,&promise);}
+    if(a->recovery_rpc==0){ok=object_field(s,gui,"ellt","Niantic.Holoholo.VNext.IRaidVNextRpcService",&service)&&invoke(s,method(s,s->base.object_get_class(service),"SyncVNextBattle",NULL,0,NULL),service,NULL,&promise);}
     else if(a->recovery_rpc==3){
         SilphManagedRef container={0};void *di=NULL,*kind=klass(s,"holo-game-interfaces.dll","Niantic.Holoholo.Collections","IInventoryCache");void *type_object=kind?s->api.type_object(s->base.class_get_type(kind)):NULL;
         const char *types[]={"System.Type"};void *args[]={type_object};int r=ar_service(s,5,&container);
@@ -282,7 +282,7 @@ static int ar_sync_recovery(Enhancer *s,const SilphSchedulePermit *permit,void *
 }
 static int ar_lobby(Enhancer *s,const SilphSchedulePermit *permit,void *gui,uint64_t now){
     AutoRaid *a=&s->route;void *details=NULL,*lobby=NULL,*panel=NULL;
-    if(!ar_owns_gui(s)||!object_field(s,gui,"ekty","Holoholo.Rpc.RaidDetailsContainer",&details)||!object_field(s,gui,"ektx","Holoholo.Rpc.LobbyProto",&lobby))return 0;
+    if(!ar_owns_gui(s)||!object_field(s,gui,"elnb","Holoholo.Rpc.RaidDetailsContainer",&details)||!object_field(s,gui,"elna","Holoholo.Rpc.LobbyProto",&lobby))return 0;
     int64_t seed=0;if(!scalar(s,method(s,s->base.object_get_class(details),"get_RaidSeed","System.Int64",0,NULL),details,&seed,8)||(uint64_t)seed!=a->site.seed){ar_gate(s,10);return 0;}
     bool started=false;if(!scalar(s,method(s,s->base.object_get_class(gui),"get_BattleStarted","System.Boolean",0,NULL),gui,&started,1))return 0;
     if(started&&a->stage!=9){
@@ -372,7 +372,7 @@ static void ar_resolve_gate(Enhancer *s,unsigned gate){if(s->route.resolve_gate!
 static int ar_resolve(Enhancer *s,void *gui,uint64_t now){
     AutoRaid *a=&s->route;void *info=NULL,*root=NULL,*fort=NULL;char gym[161]={0};int32_t status=0;
     if(!target(s,a->root,&root)||!read_ref(s,root,"get_FortId",&fort)||!label_string(s,fort,gym,sizeof(gym))||strcmp(gym,a->site.gym)){ar_resolve_gate(s,6);return 0;}
-    if(!object_field(s,gui,"elcx","Niantic.Holoholo.Raid.IRaidResolveInformation",&info)||!read_i32(s,info,"<Status>k__BackingField",&status,true)){ar_resolve_gate(s,5);return 0;}
+    if(!object_field(s,gui,"elwb","Niantic.Holoholo.Raid.IRaidResolveInformation",&info)||!read_i32(s,info,"<Status>k__BackingField",&status,true)){ar_resolve_gate(s,5);return 0;}
     if(status>=0&&a->resolve_status!=(uint32_t)status+1){a->resolve_status=(uint32_t)status+1;uint32_t free=0,premium=0;int inventory=silph_game_read_item(a->game,1401,&free);if(!inventory)inventory=silph_game_read_item(a->game,1402,&premium);__android_log_print(ANDROID_LOG_INFO,"SilphRaid","resolve status=%d seed=%llu free=%u premium=%u inventory=%d",status,(unsigned long long)a->site.seed,free,premium,inventory);}
     if(status==5&&a->stage==9&&a->recovery_care){if(a->acted_gui!=(uintptr_t)gui&&ar_void(s,gui,"Close")){a->acted_gui=(uintptr_t)gui;__android_log_print(ANDROID_LOG_INFO,"SilphRaid","exhausted team notice dismissed");}return 0;}
     if(status==3||status==4){ar_void(s,gui,"Close");ar_done(s,9);return 0;}
@@ -384,7 +384,7 @@ static int ar_visual_capture(Enhancer *s,uint64_t now){
     AutoRaid *a=&s->route;if(now<a->ui_at)return 0;
     void *interaction=NULL,*state=NULL,*map=NULL,*reward=NULL,*fort=NULL;char gym[161]={0};
     if(!target(s,s->interaction,&interaction)||!target(s,s->state,&state)||!invoke(s,s->state_map,state,NULL,&map)||!map){ar_resolve_gate(s,20);return 0;}
-    if(!exact(s,map,a->map_pokemon_class)||!object_field(s,map,"eljb","Holoholo.Rpc.RaidEncounterProto",&reward)||!object_field(s,reward,"FortId","System.String",&fort)||!label_string(s,fort,gym,sizeof(gym))||strcmp(gym,a->site.gym)){ar_resolve_gate(s,21);return 0;}
+    if(!exact(s,map,a->map_pokemon_class)||!object_field(s,map,"emcg","Holoholo.Rpc.RaidEncounterProto",&reward)||!object_field(s,reward,"FortId","System.String",&fort)||!label_string(s,fort,gym,sizeof(gym))||strcmp(gym,a->site.gym)){ar_resolve_gate(s,21);return 0;}
     int64_t id=0;if(!read_i64(s,reward,"EncounterId",&id)||!id||(uint64_t)id!=s->last_id){ar_resolve_gate(s,22);return 0;}a->expected=(uint64_t)id;
     if(s->promise.serial||s->berry_promise.serial)return 0;
     int accepted=ar_accept_reward(s,reward);if(accepted<0){ar_resolve_gate(s,4);return 0;}
@@ -469,8 +469,8 @@ static int autoraid_tick(Enhancer *s,const SilphSchedulePermit *permit,uint64_t 
                 if(name&&!strcmp(name,"RaidApproachUIController")&&a->stage<=2&&ar_owns_gui(s))r=ar_approach(s,permit,gui,now);
                 else if(name&&!strcmp(name,"MainMenuGuiController")&&s->map&&a->stage==1&&!a->joined&&now-a->ui_at>UINT64_C(8000000000)){
                     if(a->reopen++>=2){ar_done(s,2);return 0;}void *place=NULL,*explore=NULL;if(target(s,a->place,&place)&&target(s,a->explore,&explore)){
-                        bool remote=false;int32_t context=0;const char *types[]={"Niantic.Holoholo.Gym.MapGym","System.Boolean","System.Action","Niantic.Holoholo.Gym.PreviousContext"};void *args[]={place,&remote,NULL,&context};
-                        if(!invoke(s,method(s,s->base.object_get_class(explore),"GymSelected","System.Void",4,types),explore,args,NULL))return SILPH_MANAGED_EXCEPTION;a->ui_at=now;
+                        bool remote=false;int32_t context=0;const char *types[]={"Niantic.Holoholo.Gym.IMapGym","System.Boolean","System.Action","Niantic.Holoholo.Gym.PreviousContext","Niantic.Holoholo.Gym.IncompleteRaidRecoveryData"};void *args[]={place,&remote,NULL,&context,NULL};
+                        if(!invoke(s,method(s,s->base.object_get_class(explore),"GymSelected","System.Void",5,types),explore,args,NULL))return SILPH_MANAGED_EXCEPTION;a->ui_at=now;
                     }
                 }
                 else if(name&&!strcmp(name,"UseRaidTicketGuiController")&&a->joined&&a->stage==2&&!a->ticket_started&&ar_owns_gui(s)){

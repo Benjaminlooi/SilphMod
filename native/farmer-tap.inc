@@ -31,7 +31,7 @@ int silph_farmer_view_teleport(void *memory,bool enabled){
     if(!enabled){s->tap_enabled=0;s->tap_at=0;return 0;}if(s->tap_checked){s->tap_enabled=s->metrics.tap_available;return s->metrics.tap_error?1:0;}s->tap_checked=1;s->tap_enabled=1;
     void *parameter=s->resolver("il2cpp_method_get_param",s->context);if(parameter)memcpy(&s->api.parameter,&parameter,sizeof(parameter));
     s->tap_class=klass(s,"holo-game.dll","Niantic.Holoholo.Map","GroundTapHandler");s->gesture_class=klass(s,"TouchScript.dll","TouchScript.Gestures","TapGesture");
-    s->tap_gesture=field(s,s->tap_class,"tapGesture","TouchScript.Gestures.TapGesture");s->tap_controller=field(s,s->tap_class,"emuq","Niantic.Holoholo.Map.IMapController");s->tap_position=field(s,s->gesture_class,"startPosition","UnityEngine.Vector2");
+    s->tap_gesture=field(s,s->tap_class,"tapGesture","TouchScript.Gestures.TapGesture");s->tap_controller=field(s,s->tap_class,"enoh","Niantic.Holoholo.Map.IMapController");s->tap_position=field(s,s->gesture_class,"startPosition","UnityEngine.Vector2");
     const char *types[]={"System.Object","System.EventArgs"};const void *entry=NULL;void *iterator=NULL;
     if(s->api.parameter&&s->tap_class)for(unsigned i=0;i<1024;i++){
         const void *candidate=s->base.class_get_methods(s->tap_class,&iterator);if(!candidate)break;const char *name=s->base.method_get_name(candidate);

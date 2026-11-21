@@ -96,7 +96,7 @@ static void display_tick(Enhancer *s,uint64_t now){
 }
 static void display_open(Enhancer *s){
     if(!(s->config.flags&SILPH_ENH_INFO))return;s->nameplate_class=klass(s,"holo-game.dll","Niantic.Holoholo.Encounter","EncounterNameplate");s->text_class=klass(s,"UnityEngine.UI.dll","UnityEngine.UI","Text");s->pokemon_class=klass(s,"holo-protos.dll","Holoholo.Rpc","PokemonProto");
-    s->nameplate_text=field(s,s->nameplate_class,"nameText","UnityEngine.UI.Text");s->nameplate_master=field(s,s->nameplate_class,"dsuh","IGameMasterData");s->nameplate_pokemon=s->pokemon_class;
+    s->nameplate_text=field(s,s->nameplate_class,"nameText","UnityEngine.UI.Text");s->nameplate_master=field(s,s->nameplate_class,"dufa","IGameMasterData");s->nameplate_pokemon=s->pokemon_class;
     s->text_get=method(s,s->text_class,"get_text","System.String",0,NULL);const char *str[]={"System.String"},*bit[]={"System.Boolean"},*over[]={"UnityEngine.VerticalWrapMode"};s->text_set=method(s,s->text_class,"set_text","System.Void",1,str);s->rich_get=method(s,s->text_class,"get_supportRichText","System.Boolean",0,NULL);s->rich_set=method(s,s->text_class,"set_supportRichText","System.Void",1,bit);s->overflow_get=method(s,s->text_class,"get_verticalOverflow","UnityEngine.VerticalWrapMode",0,NULL);s->overflow_set=method(s,s->text_class,"set_verticalOverflow","System.Void",1,over);
     const char *level[]={"IGameMasterData","System.Int32"};s->level_at=static_method(s,klass(s,"holo-game-core.dll","Niantic.Holoholo","GameMasterDataExt_PlayerLevelSettings"),"CpMultiplierAtLevel","System.Single",2,level);
     const void *entry=s->nameplate_class?s->api.method(s->nameplate_class,"SetPokemonUI",2):NULL;

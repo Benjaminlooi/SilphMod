@@ -25,12 +25,12 @@ static void manual_raid_results(Enhancer *s,void *game,void *managed,uint64_t no
     if(!target(s,s->manual_raid_gui,&service)||!read_ref(s,service,"TopGui",&gui)){manual_raid_gate(s,4);return;}
     const char *name=s->api.class_name(s->base.object_get_class(gui));if(!name||strcmp(name,"RaidResolveUIController")){manual_raid_gate(s,5);return;}
     void *info=NULL,*reward=NULL,*state=NULL,*state_root=NULL,*pokemon=NULL;int32_t status=0,balls=0;int64_t encounter=0;
-    if(!object_field(s,gui,"elcx","Niantic.Holoholo.Raid.IRaidResolveInformation",&info)||!exact(s,info,klass(s,"holo-game.dll","Niantic.Holoholo.Raid","RaidResolveInformation"))||!read_i32(s,info,"<Status>k__BackingField",&status,true)||status!=2){manual_raid_gate(s,6);return;}
-    if(!object_field(s,gui,"elcl","Holoholo.Rpc.RaidEncounterProto",&reward)){
+    if(!object_field(s,gui,"elwb","Niantic.Holoholo.Raid.IRaidResolveInformation",&info)||!exact(s,info,klass(s,"holo-game.dll","Niantic.Holoholo.Raid","RaidResolveInformation"))||!read_i32(s,info,"<Status>k__BackingField",&status,true)||status!=2){manual_raid_gate(s,6);return;}
+    if(!object_field(s,gui,"elvp","Holoholo.Rpc.RaidEncounterProto",&reward)){
         void *results=NULL;if(!read_ref(s,info,"get_BattleResults",&results)||!ar_single_reward(s,results,&reward)){manual_raid_gate(s,7);return;}
     }
     if(!object_field(s,reward,"FortId","System.String",&fort)||!label_string(s,fort,gym,sizeof(gym))||strcmp(gym,s->manual_raid_gym)||!read_i64(s,reward,"EncounterId",&encounter)||!encounter||!object_field(s,reward,"Pokemon","Holoholo.Rpc.PokemonProto",&pokemon)||!read_i32(s,reward,"ThrowsRemaining",&balls,false)||balls<1||balls>200){manual_raid_gate(s,8);return;}
-    if(!object_field(s,gui,"elbb","Niantic.Holoholo.Raid.RaidState",&state)||!object_field(s,state,"eldb","Niantic.Holoholo.Gym.IGymRootController",&state_root)||state_root!=root){manual_raid_gate(s,10);return;}
+    if(!object_field(s,gui,"eluf","Niantic.Holoholo.Raid.RaidState",&state)||!object_field(s,state,"elwf","Niantic.Holoholo.Gym.IGymRootController",&state_root)||state_root!=root){manual_raid_gate(s,10);return;}
     bool active=false;if(!scalar(s,method(s,s->base.object_get_class(state),"get_IsActiveState","System.Boolean",0,NULL),state,&active,1)||!active){manual_raid_gate(s,11);return;}
     const char *types[]={"Holoholo.Rpc.RaidEncounterProto","Niantic.Holoholo.Raid.RaidResolveInformation"};
     const void *complete=method(s,s->base.object_get_class(state),"ExitGym","System.Void",2,types);if(!complete){manual_raid_gate(s,12);return;}

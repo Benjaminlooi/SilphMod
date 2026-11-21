@@ -85,7 +85,7 @@ static void map_query_hook(void *self,bool force,const void *method){
 static void suppress_background(Hunting *s,uint32_t offset,SilphVisualAddress valid){
     size_t count=0;const void **all=s->api.assemblies(s->base.domain_get(),&count);void *klass=NULL;if(!all||count>2048)return;
     for(size_t i=0;i<count;i++){const void *image=s->api.image(all[i]);const char *name=image?s->api.image_name(image):NULL;if(name&&!strcmp(name,"holo-game.dll")){klass=s->api.klass(image,"Niantic.Holoholo.Map","MapContentHandler");break;}}
-    const void *method=klass?s->api.get_method(klass,"cmqk",1):NULL;uint32_t flags=0;if(!method||(s->base.method_get_flags(method,&flags)&0x10)||s->base.method_is_generic(method)||s->base.method_get_param_count(method)!=1||s->base.type_get_type(s->base.method_get_return_type(method))!=1||s->base.type_get_type(s->api.parameter(method,0))!=2)return;
+    const void *method=klass?s->api.get_method(klass,"cmzw",1):NULL;uint32_t flags=0;if(!method||(s->base.method_get_flags(method,&flags)&0x10)||s->base.method_is_generic(method)||s->base.method_get_param_count(method)!=1||s->base.type_get_type(s->base.method_get_return_type(method))!=1||s->base.type_get_type(s->api.parameter(method,0))!=2)return;
     uintptr_t address=0;memcpy(&address,(const char *)method+offset,8);if((address&3)||!valid(address,s->context))return;s->map_hook=shadowhook_hook_func_addr((void *)address,(void *)map_query_hook,(void **)&map_original);
 }
 int silph_hunting_start(const SilphManagedApi *base,SilphManagedResolver resolve,void *context,uint32_t offset,SilphVisualAddress valid){

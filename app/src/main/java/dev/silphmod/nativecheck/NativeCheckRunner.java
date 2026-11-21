@@ -27,7 +27,7 @@ final class NativeCheckRunner {
         final boolean workStarted;
         ProgressStalled(boolean workStarted){super("Native engine progress stalled");this.workStarted=workStarted;}
     }
-    static final String GAME="com.nianticlabs.pokemongo",GAME_SHA="e65e8db372d69d0fe82132771d7b1807a18a0c97c8ef43e47bfddfb6cb0c6e99";
+    static final String GAME="com.nianticlabs.pokemongo",GAME_SHA="af1dd6bbadfe57c70f0d9d8821bfdcb3da3c8c609af7798ea1cddc40a7183f20";
     static final class Result {final String reason;final boolean cleanup;Result(String reason,boolean cleanup){this.reason=reason;this.cleanup=cleanup;}}
     private final Context context;
     private final int mode;
@@ -294,7 +294,7 @@ final class NativeCheckRunner {
         startupStage="game_profile";
         settings.config(mode,readonly);
         PackageInfo info=context.getPackageManager().getPackageInfo(GAME,0);
-        if(!"0.435.2".equals(info.versionName))throw new IOException("Pokémon GO 0.435.2 required");
+        if(!"0.437.0".equals(info.versionName))throw new IOException("Pokémon GO 0.437.0 required");
         for(String other:new String[]{"dev.silphmod.nativetest","dev.silphmod.nativecheck"}){
             if(other.equals(BuildConfig.APPLICATION_ID))continue;
             String services=command("dumpsys activity services "+other,8000);
@@ -328,8 +328,8 @@ final class NativeCheckRunner {
         }
         String appearanceProfile="appearance.stable."+android.os.Build.FINGERPRINT.hashCode()+"."+GAME_SHA.substring(0,16)+".";
         appearanceCache=appearanceProfile+BuildConfig.VERSION_CODE;
-        deferAppearance=NativeStagePolicy.stableAppearance(settings.prefs.getAll(),appearanceProfile,BuildConfig.VERSION_CODE);
-        if(deferAppearance&&!settings.prefs.contains(appearanceCache)){settings.prefs.edit().putBoolean(appearanceCache,true).apply();log.write("startup_profile","Stable presentation retained for the same device and game");}
+        deferAppearance=settings.prefs.getBoolean(appearanceCache,true)||NativeStagePolicy.stableAppearance(settings.prefs.getAll(),appearanceProfile,BuildConfig.VERSION_CODE);
+        if(deferAppearance&&!settings.prefs.contains(appearanceCache)){settings.prefs.edit().putBoolean(appearanceCache,true).apply();log.write("startup_profile","Deferred presentation enabled for this game profile");}
         Exception startupFailure=null;
         for(;startupAttempts<10;){
             int attempt=startupAttempts++;

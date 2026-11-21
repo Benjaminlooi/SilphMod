@@ -136,8 +136,8 @@ int silph_game_read_poll(void *memory,void *map,bool inventory,SilphGameSnapshot
         if(!status)output->items[i]=(uint32_t)count;
     }
     SilphReadValue pokemon={0},stops={0};
-    if(!status){s->stage=38;status=silph_read_field(s->read,s->directory,"emlh",SILPH_READ_REFERENCE,&pokemon);}
-    if(!status){s->stage=39;status=silph_read_field(s->read,s->directory,"emle",SILPH_READ_REFERENCE,&stops);}
+    if(!status){s->stage=38;status=silph_read_field(s->read,s->directory,"enek",SILPH_READ_REFERENCE,&pokemon);}
+    if(!status){s->stage=39;status=silph_read_field(s->read,s->directory,"eneh",SILPH_READ_REFERENCE,&stops);}
     if(!status)status=scalar(s,pokemon.reference,"get_Count",&output->map_pokemon);
     if(!status)status=scalar(s,stops.reference,"get_Count",&output->map_stops);
     if(!status&&!s->compact)status=candidates(s,pokemon.reference,output);
@@ -199,7 +199,7 @@ static int read_stop(void *memory,double maximum,uint32_t incident_type,SilphSto
     memset(output,0,sizeof(*output));output->meters=INFINITY;
     double lat=0,lon=0;int status=player_location(s,&lat,&lon);
     SilphReadValue dictionary={0},values={0},iterator={0},current={0},value={0};
-    if(!status)status=silph_read_field(s->read,s->directory,"emle",SILPH_READ_REFERENCE,&dictionary);
+    if(!status)status=silph_read_field(s->read,s->directory,"eneh",SILPH_READ_REFERENCE,&dictionary);
     if(!status)status=silph_read_call(s->read,dictionary.reference,"get_Values",SILPH_READ_REFERENCE,NULL,0,&values);
     if(!status)status=silph_read_call(s->read,values.reference,"GetEnumerator",SILPH_READ_BOXED,NULL,0,&iterator);
     for(unsigned i=0;!status&&i<512;i++){
@@ -261,7 +261,7 @@ int silph_game_read_select(void *memory,double maximum,SilphPokemonPredicate acc
     memset(output,0,sizeof(*output));output->meters=INFINITY;
     double lat=0,lon=0;int status=player_location(s,&lat,&lon);
     SilphReadValue dictionary={0},collection={0},iterator={0},current={0},value={0};
-    if(!status)status=silph_read_field(s->read,s->directory,"emlh",SILPH_READ_REFERENCE,&dictionary);
+    if(!status)status=silph_read_field(s->read,s->directory,"enek",SILPH_READ_REFERENCE,&dictionary);
     if(!status)status=silph_read_call(s->read,dictionary.reference,"get_Values",SILPH_READ_REFERENCE,NULL,0,&collection);
     if(!status)status=silph_read_call(s->read,collection.reference,"GetEnumerator",SILPH_READ_BOXED,NULL,0,&iterator);
     for(unsigned i=0;!status&&i<128;i++) {
@@ -348,7 +348,7 @@ int silph_game_read_buddy_service(void *memory,uint32_t kind,SilphManagedRef *ou
 #endif
 int silph_game_read_service(void *memory,uint32_t kind,SilphManagedRef *output){
     GameRead *s=memory;if(!s||!s->opened||!output||kind>1)return SILPH_MANAGED_ARGUMENT;memset(output,0,sizeof(*output));
-    return kind?service(s,"holo-game.dll","Niantic.Holoholo.Buddy","IBuddyPokemonService",output):service(s,"holo-protos.dll","","IGameMasterData",output);
+    return kind?service(s,"holo-game-interfaces.dll","Niantic.Holoholo.Buddy","IBuddyPokemonService",output):service(s,"holo-protos.dll","","IGameMasterData",output);
 }
 #ifdef SILPH_PILOT_AUTORAID
 int silph_game_read_raid_service(void *memory,uint32_t kind,SilphManagedRef *out){
@@ -387,7 +387,7 @@ int silph_game_read_rocket_position(void *memory,double *lat,double *lon){
 int silph_game_read_place(void *memory,const char *fort,SilphManagedRef *out){
     GameRead *s=memory;if(!s||!s->opened||!fort||!fort[0]||strnlen(fort,161)>160||!out)return SILPH_MANAGED_ARGUMENT;memset(out,0,sizeof(*out));
     SilphReadValue dictionary={0},values={0},iterator={0},current={0},v={0};
-    int status=silph_read_field(s->read,s->directory,"emle",SILPH_READ_REFERENCE,&dictionary);
+    int status=silph_read_field(s->read,s->directory,"eneh",SILPH_READ_REFERENCE,&dictionary);
     if(!status)status=silph_read_call(s->read,dictionary.reference,"get_Values",SILPH_READ_REFERENCE,NULL,0,&values);
     if(!status)status=silph_read_call(s->read,values.reference,"GetEnumerator",SILPH_READ_BOXED,NULL,0,&iterator);
     for(unsigned i=0;!status&&i<512;i++){
@@ -408,7 +408,7 @@ int silph_game_read_gift_service(void *memory,uint32_t kind,SilphManagedRef *out
 }
 int silph_game_read_map_count(void *memory,uint32_t *output){
     GameRead *s=memory;if(!s||!s->opened||!output)return SILPH_MANAGED_ARGUMENT;SilphReadValue dictionary={0};
-    int status=silph_read_field(s->read,s->directory,"emlh",SILPH_READ_REFERENCE,&dictionary);if(!status)status=scalar(s,dictionary.reference,"get_Count",output);int freed=release(s,&dictionary.reference);return status?status:freed;
+    int status=silph_read_field(s->read,s->directory,"enek",SILPH_READ_REFERENCE,&dictionary);if(!status)status=scalar(s,dictionary.reference,"get_Count",output);int freed=release(s,&dictionary.reference);return status?status:freed;
 }
 #ifdef SILPH_ENABLE_ACTIONS
 #include "research-bridge.h"
@@ -470,7 +470,7 @@ int silph_game_read_transfer_data(void *memory,uint64_t id,SilphTransferInput *d
     if(!status)status=silph_read_call(s->read,display.reference,"get_HasLocationCard",SILPH_READ_BOOL,NULL,0,&card);
     if(!status)status=silph_read_call(s->read,display.reference,"get_IsNaturalArtPokemon",SILPH_READ_BOOL,NULL,0,&art);
     if(!status){data->known_flags|=SILPH_DATA_BACKGROUND;if(card.bits||art.bits)data->flags|=SILPH_DATA_BACKGROUND;}
-    if(!status)status=service(s,"holo-game.dll","Niantic.Holoholo.Buddy","IBuddyPokemonService",&buddy);
+    if(!status)status=service(s,"holo-game-interfaces.dll","Niantic.Holoholo.Buddy","IBuddyPokemonService",&buddy);
     SilphReadArgument arg={.kind=SILPH_READ_U64,.value.bits=id};
     if(!status)status=silph_read_call(s->read,buddy,"GetIsBuddy",SILPH_READ_BOOL,&arg,1,&value);
     if(!status){data->known_flags|=SILPH_DATA_BUDDY;if(value.bits)data->flags|=SILPH_DATA_BUDDY;}

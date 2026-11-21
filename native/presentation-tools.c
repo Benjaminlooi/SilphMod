@@ -297,27 +297,27 @@ static void setup_evolution(Presentation *s){
     __android_log_print(ANDROID_LOG_INFO,"SilphPresentation","evolution presentation prepared normal=%u mega=%u",first,second);
 }
 static void setup_scenes(Presentation *s){
-    s->gui=klass(s,"holo-game.dll","Niantic.Holoholo.NUI","GuiController");s->alive=field(s,s->gui,"m_CachedPtr","System.IntPtr");s->state=s->gui?s->api.field(s->gui,"currentState"):NULL;
+    s->gui=klass(s,"holo-game-core.dll","Niantic.Holoholo.NUI","GuiController");s->alive=field(s,s->gui,"m_CachedPtr","System.IntPtr");s->state=s->gui?s->api.field(s->gui,"currentState"):NULL;
     void *state_class=s->state?s->api.class_from_type(s->api.field_type(s->state)):NULL;
     if(!s->state||(s->api.field_flags(s->state)&0x50u)||!state_class||!s->api.is_enum(state_class)||!type(s,s->api.enum_base(state_class),"System.Int32"))s->state=NULL;
     s->top=method(s,s->gui,"get_IsTopGui","System.Boolean",0,NULL);const void *opened=method(s,s->gui,"<Open>b__84_2","System.Void",0,NULL);
     if(!s->gui||!s->alive||!s->state||!s->top||!opened){fail(s,SILPH_PRESENT_SCENES,100);return;}
     const char *confirmation[]={"Niantic.Holoholo.UI.ModalEvent"};
     for(unsigned i=0;i<SCENE_COUNT;i++){Scene *scene=&s->scenes[i];const SceneSpec *spec=&scene_specs[i];bool modal=i==SCENE_WEEKLY_FITNESS||i==SCENE_ITEM_ASSEMBLY||i==SCENE_GENERIC_MODAL;scene->klass=klass(s,"holo-game.dll",spec->space,spec->name);scene->action=method(s,scene->klass,spec->action,"System.Void",modal?1:0,modal?confirmation:NULL);scene->failed=!scene->action||!scene->klass||!s->api.assignable(s->gui,scene->klass);}
-    s->base_modal=klass(s,"holo-game.dll","Niantic.Holoholo.UI","BaseModalDialog");s->modal_title=s->base_modal?s->api.field(s->base_modal,"titleText"):NULL;
+    s->base_modal=klass(s,"holo-game-ui.dll","Niantic.Holoholo.UI","BaseModalDialog");s->modal_title=s->base_modal?s->api.field(s->base_modal,"titleText"):NULL;
     if(s->modal_title&&(s->api.field_flags(s->modal_title)&0x50u))s->modal_title=NULL;
     s->title_class=s->modal_title?s->api.class_from_type(s->api.field_type(s->modal_title)):NULL;s->title_key=field(s,s->title_class,"textKey","System.String");
     const unsigned finishing[]={SCENE_FRIENDSHIP,SCENE_AR_SAFETY,SCENE_WEEKLY_FITNESS,SCENE_ITEM_ASSEMBLY};for(unsigned i=0;i<sizeof(finishing)/sizeof(*finishing);i++){Scene *scene=&s->scenes[finishing[i]];scene->finish=method(s,scene->klass,"Dismiss","System.Void",0,NULL);if(!scene->finish)scene->failed=1;}
 #ifdef SILPH_PILOT_ROCKET
     Scene *ar=&s->scenes[SCENE_AR_SAFETY];ar->action=ar->finish;ar->finish=NULL;ar->failed=ar->failed||!ar->action;
 #endif
-    s->result_data_class=klass(s,"holo-game.dll","Niantic.Holoholo.UI.Pokemon","PokemonInfoData");s->result_data=field(s,s->scenes[SCENE_POKEMON_RESULT].klass,"egix","Niantic.Holoholo.UI.Pokemon.PokemonInfoData");s->result_confirm=field(s,s->result_data_class,"ShowConfirmButton","System.Boolean");if(!s->result_data||!s->result_confirm)s->scenes[SCENE_POKEMON_RESULT].failed=1;
+    s->result_data_class=klass(s,"holo-game.dll","Niantic.Holoholo.UI.Pokemon","PokemonInfoData");s->result_data=field(s,s->scenes[SCENE_POKEMON_RESULT].klass,"eham","Niantic.Holoholo.UI.Pokemon.PokemonInfoData");s->result_confirm=field(s,s->result_data_class,"ShowConfirmButton","System.Boolean");if(!s->result_data||!s->result_confirm)s->scenes[SCENE_POKEMON_RESULT].failed=1;
     unsigned valid=0;for(unsigned i=0;i<SCENE_COUNT;i++){if(s->scenes[i].failed)s->scene_errors|=1u<<i;else{s->scene_supported|=1u<<i;valid++;}}
     Scene *egg=&s->scenes[SCENE_EGG_CUTSCENE];void *asset=klass(s,"holo-game.dll","","PokemonInfoEggHatch");egg->asset_class=asset;egg->asset_alive=field(s,asset,"m_CachedPtr","System.IntPtr");egg->asset=field(s,egg->klass,"eggHatchAsset","PokemonInfoEggHatch");egg->skip=method(s,asset,"SkipEggHatchAnimation","System.Void",0,NULL);if(!egg->asset||!egg->skip||!egg->asset_alive){egg->asset=NULL;egg->skip=NULL;}
     if(!valid||hook(s,opened,(void *)on_open,(void **)&open_original)){fail(s,SILPH_PRESENT_SCENES,101);return;}s->available|=SILPH_PRESENT_SCENES;
     void *map=klass(s,"holo-game.dll","Niantic.Holoholo.Map","MapExploreState"),*iterator=NULL;const void *unique=NULL;const char *parameter[]={"Niantic.Holoholo.EggHatch.HatchedPokemonsData"};unsigned matches=0;
     s->map_class=map;s->layer_class=klass(s,"holo-game-core.dll","Niantic.Holoholo.NUI","GuiLayerService");
-    s->map_layer=field(s,map,"eltp","Niantic.Holoholo.NUI.IGuiLayerService");s->layer_top=method(s,s->layer_class,"TopGui","Niantic.Holoholo.NUI.IGuiController",0,NULL);
+    s->map_layer=field(s,map,"emmx","Niantic.Holoholo.NUI.IGuiLayerService");s->layer_top=method(s,s->layer_class,"TopGui","Niantic.Holoholo.NUI.IGuiController",0,NULL);
     for(unsigned i=0;map&&i<2048;i++){const void *m=s->base.class_get_methods(map,&iterator);if(!m)break;if(signature(s,m,"System.Void",1,parameter)){unique=m;matches++;}}
     if(matches==1&&hook(s,unique,(void *)on_egg,(void **)&egg_original))s->stage=102;
 #if defined(SILPH_PILOT_ROCKET) || defined(SILPH_PRESENT_SCOPED) || defined(SILPH_PRESENT_UNWIND)
@@ -328,13 +328,13 @@ static void setup_scenes(Presentation *s){
 }
 static void setup_gifts(Presentation *s){
     s->gift=klass(s,"holo-game.dll","Niantic.Holoholo.Social.Gifting.UI","OpenGiftGuiController");s->box_stage=klass(s,"holo-game.dll","Niantic.Holoholo.Social.Gifting.UI","GiftBoxStage");s->box=klass(s,"holo-game.dll","","GiftBox");s->reward=klass(s,"holo-game.dll","Niantic.Holoholo.UI","MajorRewardSequenceView");s->animator=klass(s,"UnityEngine.AnimationModule.dll","UnityEngine","Animator");s->wait=klass(s,"Zeppelin.dll","Niantic.Zeppelin.Scheduler","Wait");
-    s->duration=field(s,s->gift,"giftOpenAnimationLength","System.Single");s->gift_animator=field(s,s->gift,"guiAnimator","UnityEngine.Animator");s->stage_box=field(s,s->box_stage,"dlvn","GiftBox");s->box_animator=field(s,s->box,"giftBoxAnimator","UnityEngine.Animator");s->reward_animator=field(s,s->reward,"animator","UnityEngine.Animator");s->wait_seconds=field(s,s->wait,"<SleepFor>k__BackingField","System.Single");
+    s->duration=field(s,s->gift,"giftOpenAnimationLength","System.Single");s->gift_animator=field(s,s->gift,"guiAnimator","UnityEngine.Animator");s->stage_box=field(s,s->box_stage,"dnhr","GiftBox");s->box_animator=field(s,s->box,"giftBoxAnimator","UnityEngine.Animator");s->reward_animator=field(s,s->reward,"animator","UnityEngine.Animator");s->wait_seconds=field(s,s->wait,"<SleepFor>k__BackingField","System.Single");
     s->gift_alive=field(s,s->gift,"m_CachedPtr","System.IntPtr");s->animator_alive=field(s,s->animator,"m_CachedPtr","System.IntPtr");
     const char *single[]={"System.Single"},*reward_data[]={"Niantic.Holoholo.UI.MajorRewardSequenceView.MajorRewardSequenceData"};
     s->get_speed=method(s,s->animator,"get_speed","System.Single",0,NULL);s->set_speed=method(s,s->animator,"set_speed","System.Void",1,single);
     const void *methods[6]={method(s,s->gift,"OnOpenClick","System.Void",0,NULL),method(s,s->gift,"HandleDismissComplete","System.Void",0,NULL),method(s,s->box_stage,"AnimateGiftBoxOpen","System.Void",0,NULL),method(s,s->reward,"Initialize","System.Void",1,reward_data),NULL,NULL};
-    void *iterator=NULL;for(unsigned i=0;s->gift&&i<512;i++){void *k=s->api.nested(s->gift,&iterator);if(!k)break;const char *name=s->api.type_name(s->base.class_get_type(k));if(name){if(strstr(name,"OpenGiftGuiController.dbn"))s->iterators[0]=k;if(strstr(name,"OpenGiftGuiController.dbo"))s->iterators[1]=k;s->api.free((void *)name);}}
-    const char *fields[]={"dlys","dlyv"};bool valid=s->duration&&s->gift_animator&&s->stage_box&&s->box_animator&&s->reward_animator&&s->wait_seconds&&s->get_speed&&s->set_speed&&s->gift_alive&&s->animator_alive;
+    void *iterator=NULL;for(unsigned i=0;s->gift&&i<512;i++){void *k=s->api.nested(s->gift,&iterator);if(!k)break;const char *name=s->api.type_name(s->base.class_get_type(k));if(name){if(strstr(name,"OpenGiftGuiController.dho"))s->iterators[0]=k;if(strstr(name,"OpenGiftGuiController.dhp"))s->iterators[1]=k;s->api.free((void *)name);}}
+    const char *fields[]={"dnkw","dnkz"};bool valid=s->duration&&s->gift_animator&&s->stage_box&&s->box_animator&&s->reward_animator&&s->wait_seconds&&s->get_speed&&s->set_speed&&s->gift_alive&&s->animator_alive;
     for(unsigned i=0;i<2;i++){s->iterator_current[i]=field(s,s->iterators[i],fields[i],"Niantic.Zeppelin.Scheduler.ISchedule");methods[4+i]=method(s,s->iterators[i],"MoveNext","System.Boolean",0,NULL);valid=valid&&s->iterator_current[i];}
     for(unsigned i=0;i<6;i++)valid=valid&&methods[i];if(!valid){fail(s,SILPH_PRESENT_GIFTS,200);return;}
     void *proxies[]={(void *)gift_click,(void *)gift_dismiss,(void *)gift_stage,(void *)gift_reward,(void *)gift_next0,(void *)gift_next1};void **originals[]={(void **)&click_original,(void **)&dismiss_original,(void **)&stage_original,(void **)&reward_original,(void **)&iterator_original[0],(void **)&iterator_original[1]};
@@ -345,8 +345,8 @@ static void setup_manual(Presentation *s){
     const char *flags[]={"favorite_","isEgg_","isFusion_","isLucky_"};bool valid=true;for(unsigned i=0;i<4;i++){s->flags[i]=field(s,s->pokemon,flags[i],"System.Boolean");valid=valid&&s->flags[i];}
     s->id=field(s,s->pokemon,"id_","System.UInt64");s->limited=field(s,s->pokemon,"limitedPokemonIdentifier_","System.String");s->display_field=field(s,s->pokemon,"pokemonDisplay_","Holoholo.Rpc.PokemonDisplayProto");s->shiny=field(s,s->display,"Shiny","System.Boolean");
     const char *master[]={"IGameMasterData"},*mon[]={"Holoholo.Rpc.PokemonProto"},*batch[]={"System.Int32","System.Collections.Generic.List<Holoholo.Rpc.PokemonProto>","Niantic.Holoholo.UI.IModalButton[]","Niantic.Holoholo.UI.IModalButton[]"};
-    s->selection_disabled=method(s,s->pokemon,"IsSelectionDisabled","System.Boolean",1,master);s->clone=method(s,s->pokemon,"Clone","Holoholo.Rpc.PokemonProto",0,NULL);s->mode=field(s,s->multi,"ebum","Niantic.Holoholo.UI.SelectMode");s->selected=field(s,s->list,"<SelectedPokemon>k__BackingField","System.Collections.Generic.List<Holoholo.Rpc.PokemonProto>");s->remote=field(s,s->list,"<IsRemoteTrade>k__BackingField","System.Boolean");
-    const void *gate=method(s,s->multi,"cdcw","System.Boolean",1,mon),*send=method(s,s->list,"cdbw","System.Void",4,batch);
+    s->selection_disabled=method(s,s->pokemon,"IsSelectionDisabled","System.Boolean",1,master);s->clone=method(s,s->pokemon,"Clone","Holoholo.Rpc.PokemonProto",0,NULL);s->mode=field(s,s->multi,"ecoe","Niantic.Holoholo.UI.SelectMode");s->selected=field(s,s->list,"<SelectedPokemon>k__BackingField","System.Collections.Generic.List<Holoholo.Rpc.PokemonProto>");s->remote=field(s,s->list,"<IsRemoteTrade>k__BackingField","System.Boolean");
+    const void *gate=method(s,s->multi,"cdos","System.Boolean",1,mon),*send=method(s,s->list,"cdnm","System.Void",4,batch);
     valid=valid&&s->id&&s->limited&&s->display_field&&s->shiny&&s->selection_disabled&&s->clone&&s->mode&&s->selected&&s->remote&&gate&&send;
     if(!valid||hook(s,gate,(void *)manual_selection,(void **)&selection_original)||hook(s,send,(void *)manual_batch,(void **)&batch_original)){fail(s,SILPH_PRESENT_MANUAL,300);return;}s->available|=SILPH_PRESENT_MANUAL;
 }
