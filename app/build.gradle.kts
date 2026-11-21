@@ -37,6 +37,13 @@ if (raidApi.isNotEmpty()) {
 android {
     namespace = "dev.silphmod.nativecheck"
     compileSdk = 36
+    ndkVersion = "28.2.13676358"
+    externalNativeBuild {
+        cmake {
+            path = rootProject.file("native/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
     defaultConfig {
         applicationId = "dev.rootcatch.ugphonetest"
         minSdk = 29
@@ -45,6 +52,13 @@ android {
         versionName = "2.7.6"
         buildConfigField("String", "RAID_API_BASE", "\"$raidApi\"")
         ndk { abiFilters += "arm64-v8a" }
+        externalNativeBuild {
+            cmake {
+                arguments += "-DSILPH_IDE_MODE=${providers.gradleProperty("silph.nativeMode").orElse("farmer").get()}"
+                // CMake supplies the editor model; prepareNative builds the shipped binaries.
+                targets += "silph-ide"
+            }
+        }
     }
     buildFeatures { buildConfig = true }
     sourceSets.getByName("main").java.directories.add(generatedNative.get().asFile.absolutePath)

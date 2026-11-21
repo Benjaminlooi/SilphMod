@@ -651,6 +651,8 @@ $env:SILPH_RAID_API = "https://your-service.example"
 
 Gradle builds the C components from [native](native) through [build_native.ps1](tools/build_native.ps1). The hook backend is obtained from a pinned ShadowHook revision and kept outside the publishable code, in `.dependencies/`. You can point to existing installations with `SILPH_NDK` and `SILPH_SHADOWHOOK`. The raid service address is supplied at build time through `SILPH_RAID_API` or the local `silph.raidApi` property.
 
+Android Studio uses [native/CMakeLists.txt](native/CMakeLists.txt) for C code indexing (requires SDK CMake **3.22.1**). Sync the project with Gradle files after opening it. The editor defaults to the `farmer` compiler definitions, including `SILPH_PRESENT_SCOPED`. To inspect another mode, set `silph.nativeMode=enhancer`, `rocket`, or `kecleon` in your local Gradle properties and sync again. This selects only the editor configuration; the PowerShell build still produces all four modes. Keep the CMake source lists and definitions aligned with the build script when changing native build options.
+
 The build generates the **twelve native `.so` components** and their SHA-256 fingerprints. The service verifies them again before loading the engine. These files are built from C and the hook dependency. Gradle bundles them into the APK from `app/src/main/jniLibs/arm64-v8a/`.
 
 Without a signing configuration, the release output is **unsigned**. Signing it requires the `SILPH_KEYSTORE`, `SILPH_STORE_PASSWORD`, `SILPH_KEY_ALIAS` and `SILPH_KEY_PASSWORD` keys. The keys stay out of the repository; updating an existing installation uses the same certificate.

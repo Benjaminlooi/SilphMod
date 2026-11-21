@@ -2,6 +2,7 @@
 .dependencies/
 .idea/
 **/build/
+**/.cxx/
 local.properties
 *.iml
 *.apk
