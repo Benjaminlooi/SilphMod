@@ -9,7 +9,7 @@ Local automation for the original Pokémon GO on **rooted Android**, both UGPhon
 
 You configure the features, press **Start service** and follow the progress from the notification. **Stop** and **Export logs** let you stop the session and review its results. The interface, notifications and visual assets are in English.
 
-**Edition:** `2.8.4` · [MIT](LICENSE)
+**Edition:** `2.8.5` · [MIT](LICENSE)
 
 **Platform:** Android 10 or later, ARM64 and root. One APK for both UGPhone and physical phones.
 
@@ -69,7 +69,7 @@ You configure the features, press **Start service** and follow the progress from
 | System | Android **10 or later** and `su` permission |
 | Environments | UGPhone and rooted ARM64 physical phones |
 | Architecture | **ARM64**, 64-bit pointers |
-| Game | Original Pokémon GO **0.435.2**, `versionCode 2026110702` |
+| Game | Original Pokémon GO **0.437.0**, `versionCode 2026110902` |
 | Game engine | Unity **6000.3.22f1**, IL2CPP |
 | APK | `minSdk 29`, `targetSdk 36` |
 | Optional Error 12 handling | JNI `Location` contracts resolved according to the system version |
@@ -375,9 +375,10 @@ Each recovery has **up to ten startup attempts**. **Stop** also cancels the retr
 
 Reverse engineering was used to identify contracts, structures and signatures of the supported profile. The engine resolves classes and services at runtime and validates what it is going to use; it does not distribute the game's library or its decompiled metadata.
 
-| Operation | Entry point used in profile 0.435.2 |
+| Operation | Entry point used in profile 0.437.0 |
 | --- | --- |
 | Resolve services | `Zenject.Internal.ZenUtilInternal.GetAllSceneContexts` and `DiContainer.TryResolve(System.Type)` |
+| Raid entry | `IMapExploreState.GymSelected(IMapGym, bool, Action, PreviousContext, IncompleteRaidRecoveryData)` |
 | Read position | `Niantic.Holoholo.Avatar.IMapAvatar.get_Location`, `Niantic.LatLng` structure |
 | Read targets | `IMapPlaceDirectoryService.get_AllPokemon` / `get_ActivePokestops` |
 | Open encounter | `MapPokemon.SendEncounterRequest()` |
@@ -740,6 +741,8 @@ Farmer includes **Mighty Pokémon configuration**, separate ball and berry prior
 **2.7.5 optimizes AutoRaid** with bounded caches, fewer repeated reads and recovery of map transitions. It adds **Lightweight graphics**, with optional lower detail and rendering resolution while retaining battle and catch features.
 
 **2.7.6 adds Catch all mighty Pokémon** to catch all selected mighty Pokémon with their separate ball and berry priorities. **Only catch shiny mighty** and **Only catch 15/15/15 mighty** retain their previous selection when used again. Loaders, the other modes and transfer protections are preserved.
+
+**2.8.5 updates compatibility for Pokémon GO 0.437.0**. Game references and raid entry have been adapted, and foreground detection has been corrected on some Android 16 devices.
 
 **2.8.4 expands the Enhancer Mode tools** with movement from nearby item tiles and improvements to startup continuity.
 

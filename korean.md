@@ -9,7 +9,7 @@ UGPhone과 ARM64 실기기를 포함한 **루팅된 Android** 환경에서 오�
 
 기능을 설정하고 **Start service**를 누르면 상단 알림창에서 진행 상황을 확인할 수 있습니다. **Stop** 및 **Export logs**로 세션을 종료하고 결과를 확인할 수 있습니다. 인터페이스, 알림 및 비주얼 리소스는 영어로 제공됩니다.
 
-**에디션:** `2.8.4` · [MIT](LICENSE)
+**에디션:** `2.8.5` · [MIT](LICENSE)
 
 **플랫폼:** Android 10 이상, ARM64 및 루트(Root) 권한. UGPhone 및 물리 실기기 공용 단일 APK.
 
@@ -69,7 +69,7 @@ UGPhone과 ARM64 실기기를 포함한 **루팅된 Android** 환경에서 오�
 | 시스템 | Android **10 이상** 및 `su` 루트 권한 |
 | 구동 환경 | UGPhone 및 루팅된 ARM64 물리 기기 |
 | 아키텍처 | **ARM64**, 64비트 포인터 |
-| 게임 버전 | 오리지널 Pokémon GO **0.435.2**, `versionCode 2026110702` |
+| 게임 버전 | 오리지널 Pokémon GO **0.437.0**, `versionCode 2026110902` |
 | 게임 엔진 | Unity **6000.3.22f1**, IL2CPP |
 | APK 사양 | `minSdk 29`, `targetSdk 36` |
 | 선택적 Error 12 처리 | 시스템 버전에 맞춰 해결되는 JNI `Location` 계약 |
@@ -375,9 +375,10 @@ return now - s->since >= UINT64_C(300000000000);
 
 리버스 엔지니어링을 통해 확인된 게임 프로필의 시그니처와 구조체를 런타임에 직접 동적 바인딩하여 사용합니다.
 
-| 작업 | 게임 버전 0.435.2 진입 함수 |
+| 작업 | 게임 버전 0.437.0 진입 함수 |
 | --- | --- |
 | 서비스 획득 | `Zenject.Internal.ZenUtilInternal.GetAllSceneContexts` 및 `DiContainer.TryResolve(System.Type)` |
+| 레이드 입장 | `IMapExploreState.GymSelected(IMapGym, bool, Action, PreviousContext, IncompleteRaidRecoveryData)` |
 | 플레이어 좌표 읽기 | `Niantic.Holoholo.Avatar.IMapAvatar.get_Location`, `Niantic.LatLng` 구조체 |
 | 타깃 목록 읽기 | `IMapPlaceDirectoryService.get_AllPokemon` / `get_ActivePokestops` |
 | 조우 인카운터 진입 | `MapPokemon.SendEncounterRequest()` |
@@ -740,6 +741,8 @@ Farmer는 **Mighty Pokémon configuration**, 와일드 포켓몬 전용 볼·열
 **2.7.5는 AutoRaid를 최적화**해 크기가 제한된 캐시, 반복 읽기 감소와 지도 전환 복구를 제공합니다. **Lightweight graphics**는 선택적으로 디테일과 렌더링 해상도를 낮추며 배틀과 포획 기능을 유지합니다.
 
 **2.7.6은 Catch all mighty Pokémon을 추가**해 선택한 모든 와일드 포켓몬을 전용 볼·열매 우선순위로 잡습니다. **Only catch shiny mighty**와 **Only catch 15/15/15 mighty**는 다시 사용할 때 이전 선택을 유지합니다. 로더, 다른 모드와 전송 보호를 유지합니다.
+
+**2.8.5는 Pokémon GO 0.437.0 호환성을 갱신**합니다. 게임 참조와 레이드 진입을 조정하고 일부 Android 16 기기의 포그라운드 감지를 수정합니다.
 
 **2.8.4는 Enhancer Mode 도구를 확대**해 주변 요소의 타일에서 이동하는 기능과 시작 연속성 개선을 제공합니다.
 

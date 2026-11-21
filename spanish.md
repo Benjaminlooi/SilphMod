@@ -9,7 +9,7 @@ Automatización local para Pokémon GO original en **Android con root**, tanto e
 
 Configuras las funciones, pulsas **Start service** y sigues el progreso desde la notificación. **Stop** y **Export logs** permiten detener la sesión y revisar sus resultados. La interfaz, las notificaciones y los recursos visuales están en inglés.
 
-**Edición:** `2.8.4` · [MIT](LICENSE)
+**Edición:** `2.8.5` · [MIT](LICENSE)
 
 **Plataforma:** Android 10 o posterior, ARM64 y root. Una misma APK para UGPhone y teléfonos físicos.
 
@@ -69,7 +69,7 @@ Configuras las funciones, pulsas **Start service** y sigues el progreso desde la
 | Sistema | Android **10 o posterior** y permiso `su` |
 | Entornos | UGPhone y teléfonos físicos ARM64 con root |
 | Arquitectura | **ARM64**, punteros de 64 bits |
-| Juego | Pokémon GO original **0.435.2**, `versionCode 2026110702` |
+| Juego | Pokémon GO original **0.437.0**, `versionCode 2026110902` |
 | Motor del juego | Unity **6000.3.22f1**, IL2CPP |
 | APK | `minSdk 29`, `targetSdk 36` |
 | Tratamiento opcional de Error 12 | Contratos JNI de `Location` resueltos según la versión del sistema |
@@ -375,9 +375,10 @@ Cada recuperación dispone de **hasta diez intentos de arranque**. **Stop** canc
 
 La ingeniería inversa se utilizó para identificar contratos, estructuras y firmas del perfil admitido. El motor resuelve clases y servicios en ejecución y valida lo que va a utilizar; no distribuye la biblioteca del juego ni su metadata decompilada.
 
-| Operación | Entrada utilizada en el perfil 0.435.2 |
+| Operación | Entrada utilizada en el perfil 0.437.0 |
 | --- | --- |
 | Resolver servicios | `Zenject.Internal.ZenUtilInternal.GetAllSceneContexts` y `DiContainer.TryResolve(System.Type)` |
+| Entrada a incursiones | `IMapExploreState.GymSelected(IMapGym, bool, Action, PreviousContext, IncompleteRaidRecoveryData)` |
 | Leer posición | `Niantic.Holoholo.Avatar.IMapAvatar.get_Location`, estructura `Niantic.LatLng` |
 | Leer objetivos | `IMapPlaceDirectoryService.get_AllPokemon` / `get_ActivePokestops` |
 | Abrir encuentro | `MapPokemon.SendEncounterRequest()` |
@@ -740,6 +741,8 @@ El Farmer incorpora **Mighty Pokémon configuration**, prioridades separadas de 
 **2.7.5 optimiza AutoRaid** con cachés acotadas, menor repetición de lecturas y recuperación de transiciones al mapa. Añade **Lightweight graphics**, con menor detalle y resolución de renderizado opcionales, conservando las funciones de combate y captura.
 
 **2.7.6 incorpora Catch all mighty Pokémon** para capturar todos los formidables seleccionados, con sus prioridades propias de bolas y bayas. **Only catch shiny mighty** y **Only catch 15/15/15 mighty** conservan la selección anterior al volver a utilizarlas. Se mantienen los cargadores, los demás modos y las protecciones de transferencia.
+
+**2.8.5 actualiza la compatibilidad a Pokémon GO 0.437.0**. Se adaptan las referencias del juego y la entrada a incursiones, y se corrige la lectura del primer plano en algunos dispositivos Android 16.
 
 **2.8.4 amplía las herramientas de Enhancer Mode** con desplazamiento desde las casillas de elementos cercanos y mejoras en la continuidad del arranque.
 
