@@ -11,6 +11,7 @@ final class FocusReader {
     static final long TIMEOUT_MS = 3500;
     static final String EXIT_MARKER = "RC_FOCUS_SOURCE_EXIT:";
     private static final Pattern EXIT = Pattern.compile("^RC_FOCUS_SOURCE_EXIT:([0-9]+)$", Pattern.MULTILINE);
+    private static final Pattern LONG_PRESS_TIMEOUT = Pattern.compile("^Long press timeout:\\s*[0-9]+$");
     private static final Pattern ERROR = Pattern.compile(
             "\\b(?:permission denial|permission denied|access denied|[a-z0-9_.$]*exception\\b|error\\s*:|error dumping|dump timed out|timeout\\b|not found|unknown command|unrecognized command)",
             Pattern.CASE_INSENSITIVE);
@@ -103,7 +104,7 @@ final class FocusReader {
             String line = raw.trim();
             if (line.startsWith("mCurrentFocus=") || line.startsWith("mFocusedApp=")
                     || line.startsWith("mTopFocusedDisplayId=") || line.startsWith("Display: mDisplayId=")
-                    || line.startsWith("Display #")) continue;
+                    || line.startsWith("Display #") || LONG_PRESS_TIMEOUT.matcher(line).matches()) continue;
             if (ERROR.matcher(line).find()) return true;
         }
         return false;
